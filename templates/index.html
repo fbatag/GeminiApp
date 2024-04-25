@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Gen</title>
+</head>
+
+<body>
+    <h1 style="display: inline-block;">Gerador de conteúdo para modelos de linguagem</h1>
+    <b style="float: right; text-align: right;">User: {{ user}}</b>
+    <form action="/" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="cliked_button">
+        <div class="form-load">
+            <br>
+            <label style="color: black; font-weight: bold;" for="prompt">Pedido ao contexto:</label>
+            <br>
+            <textarea name="prompt" id="prompt" rows="3" cols="70" class="txt-general-style"
+                style="width: 100%;"></textarea>
+            <br><br>
+            {% if gcs_uri == "" %}
+            <button type="submit" name="load_txt_file" class="btn-build-style">Carregar arquivo texto</button>&nbsp;&nbsp;&nbsp;
+            <input type="hidden" id="textfile_content" name="textfile_content">
+            <input type="text" id="text_filename" name="text_filename" readonly class="txt-general-style"
+                style="display: none;">
+            <br><br>
+            {% endif %}
+            <span id="load_gcs_group">
+                <button type="submit" name="load_gcs_file" class="btn-build-style">Carregar midia do
+                    GCS</button>&nbsp;&nbsp;&nbsp;
+                <input type="hidden" name="gcs_uri" value="{{gcs_uri}}">
+                {% if gcs_uri != "" %}
+                <input type="text" name="gcs_uri_label" readonly class="txt-general-style" value="{{ gcs_uri }}">
+                {% endif %}
+                <br><br>
+            </span>
+            <button type="submit" name="load_context" class="btn-load-style">Carregar contexto</button>&nbsp;&nbsp;&nbsp;
+                {% if gcs_uri != "" %}
+                <input type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style">
+                {% else %}
+                <input type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
+                    style="display: none;">
+                {% endif %}
+                <br>
+        </div>
+        <br><br>
+        &nbsp;&nbsp;
+        <button type="submit" name="load_prompts" class="btn-load-style">Carregar estória</button>&nbsp;&nbsp;&nbsp;
+        {% if prompt_len > 0 %}
+        <button type="submit" name="reset" class="btn-clear-style">Limpar</button>&nbsp;&nbsp;&nbsp;
+        <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>
+        <select name="model_name">
+            <option value="gemini-1.5-pro-preview-0409">Gemini-1.5-pro-preview-0409</option>
+            <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
+            <option value="gemini-1.0-pro-001">Gemini-1.0-pro-001</option>
+            <!--option value="gemini-1.5-pro-preview-0215">Gemini-1.5-pro-preview-0215</option-->
+            <input type="hidden" name="choosen_model_name" value="{{ choosen_model_name }}">
+        </select>&nbsp;&nbsp;&nbsp;
+        <button type="submit" name="generate" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
+        <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
+        <button type="submit" name="save" class="btn-general-style">Salvar</button>
+        {% endif %}
+        <input type="hidden" name="prompt_json"></input>
+        <input type="hidden" name="prompts_filename"></input>
+    </form>
+    {% if prompt_len > 0 %}
+    <h2>Pedidos e contextos carregados</h2>
+    <!--div class="form-list">
+        <ul>
+            {% for prompt, file_content, filename, gcs_uri_item in loaded_prompts %}
+            <li>
+                {{ loop.index }} - {{ prompt[:50] }} - {{ filename }} - {{ file_content[:50] }} - {{ gcs_uri_item }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div-->
+    <div class="form-list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Passo</th>
+                    <th>Pedido</th>
+                    <th>Arquivo (texto/midia)</th>
+                    <th>Contexto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prompt, file_content, filename, gcs_uri_item in loaded_prompts %}
+                <tr>
+                    <td style="text-align: center;">{{ loop.index }}</td>
+                    <td>&nbsp;&nbsp;&nbsp;{{ prompt[:50] }}&nbsp;&nbsp;&nbsp;</td>
+                    {% if filename == "" %}
+                    <td>&nbsp;&nbsp;&nbsp;{{ gcs_uri_item }}&nbsp;&nbsp;&nbsp;</td>
+                    <td>** MIDIA **</td>
+                    {% else %}
+                    <td>&nbsp;&nbsp;&nbsp;{{ filename }}&nbsp;&nbsp;&nbsp;</td>
+                    <td>&nbsp;&nbsp;&nbsp;{{ file_content[:50] }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <script>
+        var choosenModel = document.querySelector("input[name=choosen_model_name]");
+        if (choosenModel != null && choosenModel.value != "") {
+            console.log("MODEL NAME: " + choosenModel.value);
+            const selectElement = document.querySelector("select[name=model_name]");
+            for (const option of selectElement.options) {
+                if (option.value === choosenModel.value) {
+                    option.selected = true;
+                    break;
+                }
+            }
+        }
+
+        const form = document.querySelector("form");
+        // Adiciona um ouvinte de evento ao formulário
+        form.addEventListener("submit", function (event) {
+            // Evita que o formulário seja enviado
+            event.preventDefault();
+            // Obtém o botão que foi pressionado
+            clicked_button = document.querySelector("input[name=cliked_button]");
+            clicked_button.value = event.submitter.name;
+            console.log("CLICKED BTN: " + clicked_button.value);
+            if (clicked_button.value == "load_context") {
+                if (document.getElementById("prompt").value.trim() == "") {
+                    alert("Quando analisando um video, um pedido deve ser fornecido!");
+                    return;
+                }
+            }
+            else if (clicked_button.value == "load_prompts" || clicked_button.value == "load_txt_file") {
+                const fileInput = document.createElement("input");
+                fileInput.type = "file";
+                fileInput.name = "prompt_file";
+                if (clicked_button.value == "load_prompts") fileInput.accept = ".json"; else fileInput.accept = ".txt";
+                fileInput.addEventListener("change", function () {
+                    // Obtém o arquivo selecionado
+                    const file = this.files[0];
+                    const reader = new FileReader();
+                    console.log("CHOOSEN " + clicked_button.value + " FILE: " + file.name);
+                    reader.onload = function () {
+                        if (clicked_button.value == "load_prompts") {
+                            document.querySelector("input[name=prompt_json]").value = reader.result;
+                            form.submit();
+                        } else {
+                            document.getElementById("textfile_content").value = reader.result;
+                            document.getElementById("text_filename").style.display = "inline"
+                            document.getElementById("text_filename").value = file.name;//+ " - " + reader.result;
+                            document.getElementById("load_gcs_group").style.display = "none";
+                            document.getElementById("clear_context").style.display = "inline"
+                        }
+
+                    };
+                    reader.readAsText(file);
+                });
+                fileInput.click();
+                return;
+            }
+            else if (clicked_button.value == "save") {
+                const filename = prompt("Digite o caminho do arquivo:");
+                if (!filename) return;
+                if (filename.trim() == "") {
+                    alert("Entre um nome de arquivo válido!");
+                    return;
+                }
+                document.querySelector("input[name=prompts_filename]").value = filename.trim();
+            }
+            this.submit();
+        });
+
+
+        /*const loadGcsFileButton = document.querySelector("input[name=load_gcs_file]");
+        loadGcsFileButton.addEventListener("click", function () {
+            // Obtém o nome do bucket e do arquivo do GCS
+            const bucketName = prompt("Digite o nome do bucket:");
+            const fileName = prompt("Digite o nome do arquivo:");
+
+            // Verifica se o nome do bucket e do arquivo foram fornecidos
+            if (!bucketName || !fileName) {
+                alert("Por favor, forneça o nome do bucket e do arquivo!");
+                return;
+            }
+
+            // Cria um objeto de solicitação para obter o arquivo do GCS
+            const request = new XMLHttpRequest();
+            request.open("GET", `https://storage.googleapis.com/${bucketName}/${fileName}`);
+
+            // Adiciona um ouvinte de evento para quando a solicitação for concluída
+            request.onload = function () {
+                // Verifica se a solicitação foi bem-sucedida
+                if (request.status === 200) {
+                    // Obtém o texto do arquivo
+                    const fileContent = request.responseText;
+
+                    // Define o valor do campo de entrada oculto "textfile_content" para o conteúdo do arquivo
+                    document.querySelector("input[name=textfile_content]").value = fileContent;
+
+                    // Envia o formulário
+                    document.querySelector("form").submit();
+                } else {
+                    // Exibe uma mensagem de erro
+                    alert("Não foi possível obter o arquivo do GCS!");
+                }
+            };
+
+            // Envia a solicitação
+            request.send();
+        });*/
+
+    </script>
+</body>
+
+
+{% if any_error == "show_error_is_empty" %}
+<script>
+    alert("Por favor, digite um pedido e/ou selecione um arquivo!");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_mixed_contexts" %}
+<script>
+    alert("Contexto textual e midia não podem ser misturados!\nEscolha somente um deles de cada vez");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_repeated" %}
+<script>
+    alert("Pedido e arquivo já carregados. Entre novo pedido ou arquivo!");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_no_prompts" %}
+<script>
+    alert("Não há pedidos a processar!");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_no_prompts_to_save" %}
+<script>
+    alert("Não há pedidos a salvar!");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_no_gcs_file" %}
+<script>
+    alert("Nenhuma midia encontrada nos buckets gcs!");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_video_needs_request" %}
+<script>
+    alert("Quando analisando um video, um pedido deve ser fornecido!");
+</script>
+{% endif %}
+
+</html>

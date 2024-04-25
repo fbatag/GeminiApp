@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selecionar GCS</title>
+</head>
+<body>
+    <h1>Selecionar arquivo media GCS</h1>
+
+    <form action="/" method="POST">
+        <input type="hidden" name="cliked_button" value="gcsfile">
+        <select name="filename"  id="files">
+            {% for bucket in buckets %}
+            <optgroup label="{{ bucket[0] }}">
+                {% for filename in bucket[1] %}
+                    <option value="{{ filename[1] }}">{{ filename[0] }}</option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+        <input class="btn-general-style" type="submit" value="Selecionar">
+        <input type="hidden" name="model_name" value="{{ model_name }}">
+    </form>
+   
+</body>
+</html>
+

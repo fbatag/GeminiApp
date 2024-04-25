@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processando...</title>
+</head>
+
+<body>
+    <h1>Processando...</h1>
+
+    {% if method == "regenerate" %}
+        <p style="color: white; font-weight: bold;">Aguarde enquanto processamos sua solicitação.</p>
+        <form action="/regenerate" method="POST" style="display: inline-block;">
+            <input type="hidden" name="model_name" value="{{ model_name }}">
+        </form>
+    {% endif %}
+
+    {% if method == "gcsfile" %}
+        <p style="color: white; font-weight: bold;">Lendo os arquivos de midia dos buckets do GCS.</p>
+        <form action="/gcsfile" method="POST" style="display: inline-block;">
+            <input type="hidden" name="model_name" value="{{ model_name }}">
+        </form>
+    {% endif %}
+
+</body>
+
+<script>
+    window.onload = function () {
+        document.querySelector("form").submit();
+    };
+</script>
+
+</html>

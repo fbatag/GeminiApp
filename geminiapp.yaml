@@ -1,0 +1,17 @@
+service: geminiapp
+runtime: python39
+env: standard
+env_variables:
+  PROJECT_ID: "dev-ghack"
+  REGION: "us-central1"
+  GAE: "True"
+  GAE_APP_ID: "geminiapp"
+instance_class: F4_1G
+handlers:
+  - url: /static/(.*)
+    static_files: static/\1
+    upload: static/.*
+  - url: /.*
+    script: auto
+  - url: .*
+    script: auto

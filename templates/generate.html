@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Resultado</title>
+</head>
+
+<body>
+    <h1>Modelo: {{ model_name }}</h1>
+    <div class="form-list"  style="white-space: pre-wrap;">
+        {{ geminiResponse["candidates"][0]["content"]["parts"][0]["text"] }}
+    </div>
+    <br>
+    <form action="/save" method="POST" style="display: inline-block;">
+        <input type="hidden" name="geminiResponse"
+            value="{{ geminiResponse['candidates'][0]['content']['parts'][0]['text'] }}">
+        <input type="hidden" name="results_filename">
+        <input class="btn-general-style" type="submit" name="save" value="Salvar">
+    </form>&nbsp;&nbsp;&nbsp;
+    <form action="/proceed" method="POST" style="display: inline-block;">
+        <input type="hidden" name="model_name" value="{{ model_name }}">
+        <button class="btn-general-style" type="submit" name="proceed">Re-Gerar</button>
+    </form>&nbsp;&nbsp;&nbsp;
+    <form action="/" method="POST" style="display: inline-block;">
+        <input type="hidden" name="model_name" value="{{ model_name }}">
+        <button class="btn-general-style" type="submit" name="return">Retornar</button>
+    </form>
+    <h3>Dados de uso dessa requisição (# de tokens):</h3>
+    <div class="form-list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Passo</th>
+                    <th>Entrada</th>
+                    <th>&nbsp;&nbsp;Saída&nbsp;&nbsp;</th>
+                    <th>&nbsp;&nbsp;Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prompt_token_count, candidates_token_count, total_token_count in token_consumption %}
+                <tr>
+                    <td style="text-align: center;">{{ loop.index }}</td>
+                    <td style="text-align: center;">{{ prompt_token_count }}</td>
+                    <td style="text-align: center;">{{ candidates_token_count }}</td>
+                    <td style="text-align: center;">{{ total_token_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    
+                    <th colspan="1">GERAL:</th>
+                    <td style="text-align: center; font-weight: bold;">{{ total_token_consumption[0] }}</td>
+                    <td style="text-align: center; font-weight: bold;">{{ total_token_consumption[1] }}</td>
+                    <td style="text-align: center; font-weight: bold; text-decoration: underline;">{{ total_token_consumption[2] }}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <a style="font-size: 9px;">Note que o total de tokens é o mesmo listado no último passo, pois o número de tokens de entrada do passo seguinte
+            é a soma do prompot de entrada desse passo mais o total do passo anterior.</a>
+        <br><br>
+        <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing#google_foundational_models" target="_blank">Para valores consulte aqui</a>
+</div>
+    <h3>Avaliação de segurança de termos:</h3>
+    <div class="form-list">
+        <pre>{{ geminiResponse["candidates"][0]["safety_ratings"] }}</pre>
+    </div>
+    <script>
+        // Simula o popup para obter o caminho do arquivo
+        document.querySelector("form").addEventListener("submit", function (event) {
+            event.preventDefault();
+            if (event.submitter.name == "save") {
+                const filename = prompt("Digite o caminho do arquivo de resultdos:");
+                if (!filename) return;
+                if (filename.trim() == "") {
+                    alert("Entre um nome de arquivo válido!");
+                    return;
+                }
+                document.querySelector("input[name=results_filename]").value = filename.trim();
+            }
+            this.submit();
+        });
+    </script>
+
+    {% if show_error_no_file %}
+    <script>
+        alert("Entre um nome de aquivo válido!");
+    </script>
+    {% endif %}
+
+</body>
+
+</html>

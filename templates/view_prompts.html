@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Pedidos e contextos carregados</title>
+</head>
+
+<body>
+    <br>
+    <div class="form-list">
+        <h2>Pedidos e contextos carregados</h2>
+        <ul>
+            {% for prompt in prompts %}
+            <li>
+                {{ prompt }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    <br>
+    <form action="/" method="POST">
+        <button type="submit" name="return">Retornar</button>
+    </form>        
+ </body>
