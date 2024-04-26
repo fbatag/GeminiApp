@@ -41,5 +41,5 @@ gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DE
 gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/viewer"
 gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
     --member="user:$USER_EMAIL_DEPLOY" \
-    --role="roles/iam.serviceAccountAdmin"
+    --role="roles/iam.serviceAccountUser"
 
