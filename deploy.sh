@@ -19,12 +19,13 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable appengine.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
 gcloud services enable iap.googleapis.com 
 
 gcloud app create --project=$PROJECT_ID --region=$REGION \
 --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
-gcloud app deploy --project=$PROJECT_ID --quiet #alterar o app.yaml
+gcloud app deploy --project=$PROJECT_ID --quiet
 
 gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SUPPORT_EMAIL
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp
