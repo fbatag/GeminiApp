@@ -48,7 +48,7 @@
         <br><br>
         &nbsp;&nbsp;
         <button type="submit" name="load_prompts" class="btn-load-style">Carregar estória</button>&nbsp;&nbsp;&nbsp;
-        {% if prompt_len > 0 %}
+        {% if loaded_prompts|length > 0 %}
         <button type="submit" name="reset" class="btn-clear-style">Limpar</button>&nbsp;&nbsp;&nbsp;
         <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>
         <select name="model_name">
@@ -65,7 +65,7 @@
         <input type="hidden" name="prompt_json"></input>
         <input type="hidden" name="prompts_filename"></input>
     </form>
-    {% if prompt_len > 0 %}
+    {% if loaded_prompts|length > 0 %}
     <h2>Pedidos e contextos carregados</h2>
     <!--div class="form-list">
         <ul>

@@ -14,6 +14,7 @@ from google.cloud import storage
 #REGION = os.environ.get("REGION")
 #GAE = os.environ.get("GAE", "TRUE").upper() == "TRUE"
 #GAE_APP_ID = os.environ.get("GAE_APP_ID", "default")
+VIDEO_BUCKET_NAME = os.environ.get("VIDEO_BUCKET_NAME", "gemini-app-videos-4ab7c")
 
 # Create a Flask app
 app = Flask(__name__)
@@ -118,6 +119,24 @@ def renderIndex(any_error="", gcs_uri =""):
     loaded_prompts = loadedPrompts()
     return render_template("index.html", user=get_iap_user(), loaded_prompts=loaded_prompts, prompt_len=len(loaded_prompts), choosen_model_name=choosen_model_name, any_error=any_error, gcs_uri=gcs_uri)
 
+@app.route('/upload_video', methods=['POST'])
+def upload_video():
+    print("METHOD: upload_video", request.method)
+    file = request.files['load_video_file']
+    if file:
+        bucket_name = VIDEO_BUCKET_NAME
+        filename = file.filename
+        # Cria um cliente de armazenamento
+        storage_client = storage.Client()
+        # Cria um bucket se ele não existir
+        bucket = storage_client.bucket(bucket_name)
+        if not bucket.exists():
+            bucket.create()
+        # Faz o upload do arquivo para o bucket
+        blob = bucket.blob(filename)
+        blob.upload_from_file(file, content_type='video/mp4')
+
+    return gcsfile()
 
 @app.route("/gcsfile", methods=["GET", "POST"])
 def gcsfile():
@@ -136,8 +155,9 @@ def gcsfile():
                     index += 1
                 else:
                     buckets[index][1].append([blob.name, gcsFullName(blob)])
-    if len(buckets) == 0:
-        return renderIndex(any_error="show_error_no_gcs_file")
+    print(buckets)
+    #if len(buckets) == 0:
+    #    return renderIndex(any_error="show_error_no_gcs_file")
     return render_template("gcsfile.html", buckets=buckets, model_name=request.form.get("model_name",""))
 
 def gcsFullName(blob):

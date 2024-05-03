@@ -7,24 +7,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Selecionar GCS</title>
 </head>
+
 <body>
     <h1>Selecionar arquivo media GCS</h1>
 
-    <form action="/" method="POST">
-        <input type="hidden" name="cliked_button" value="gcsfile">
-        <select name="filename"  id="files">
+    <form id="gcs_form" action="/" method="POST">
+        <input type="hidden" id="cliked_button" name="cliked_button" value="gcsfile">
+        {% if buckets|length == 0 %}
+        <p style="color: white; font-weight: bold;">Nenhum video encontrada em nenhum dos buckets gcs deste projeto!</p>
+        {% else %}
+        <select name="filename" id="files">
             {% for bucket in buckets %}
             <optgroup label="{{ bucket[0] }}">
                 {% for filename in bucket[1] %}
-                    <option value="{{ filename[1] }}">{{ filename[0] }}</option>
+                <option value="{{ filename[1] }}">{{ filename[0] }}</option>
                 {% endfor %}
             </optgroup>
             {% endfor %}
         </select>
         <input class="btn-general-style" type="submit" value="Selecionar">
+        {% endif %}
         <input type="hidden" name="model_name" value="{{ model_name }}">
     </form>
-   
-</body>
-</html>
+    <form id="load_Form" method="POST" action="/upload_video" enctype="multipart/form-data">
+        <input type="file" name="load_video_file" class="btn-build-style" accept="video/mp4">
+        <input type="submit" name="Upload" value="Upload" class="btn-load-style">
+        <input type="hidden" name="model_name" value="{{ model_name }}">
+    </form>
+    <br><br>
+    <p id="load_message" style="color: white; font-weight: bold;">Carregando o arquivo de video para o GCS.</p>
 
+    <script>
+        document.getElementById("load_message").style.display = "none";
+        const form = document.getElementById("load_Form");
+        // Adiciona um ouvinte de evento ao formulário
+        form.addEventListener("submit", function (event) {
+            // Evita que o formulário seja enviado
+            event.preventDefault();
+            // Obtém o botão que foi pressionado
+            console.log("CLICKED BTN: " + event.submitter.name);
+            if (event.submitter.name == "Upload") {
+                document.getElementById("gcs_form").style.display = "none";
+                document.getElementById("load_Form").style.display = "none";
+                document.getElementById("load_message").style.display = "block";
+            }
+            this.submit();
+        });
+    </script>
+</body>
+
+</html>
