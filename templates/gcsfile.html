@@ -15,6 +15,8 @@
         <input type="hidden" id="cliked_button" name="cliked_button" value="gcsfile">
         {% if buckets|length == 0 %}
         <p style="color: white; font-weight: bold;">Nenhum video encontrada em nenhum dos buckets gcs deste projeto!</p>
+        <br>
+        <p style="color: white; font-weight: bold;">Você pode fazer upload usando o botão abaixo:</p>
         {% else %}
         <select name="filename" id="files">
             {% for bucket in buckets %}
@@ -30,28 +32,41 @@
         <input type="hidden" name="model_name" value="{{ model_name }}">
     </form>
     <form id="load_Form" method="POST" action="/upload_video" enctype="multipart/form-data">
-        <input type="file" name="load_video_file" class="btn-build-style" accept="video/mp4">
-        <input type="submit" name="Upload" value="Upload" class="btn-load-style">
+        <input type="submit" name="Upload" value="Carregar video" class="btn-file">
         <input type="hidden" name="model_name" value="{{ model_name }}">
     </form>
+    <form id="return_form" action="/" method="POST">
+        <button type="submit" name="return">Retornar</button>
+    </form>
     <br><br>
-    <p id="load_message" style="color: white; font-weight: bold;">Carregando o arquivo de video para o GCS.</p>
+    <p id="load_message" style="color: white; font-weight: bold;">Carregando o arquivo de video para o GCS.    AGUARDE ... </p>
 
     <script>
         document.getElementById("load_message").style.display = "none";
         const form = document.getElementById("load_Form");
         // Adiciona um ouvinte de evento ao formulário
-        form.addEventListener("submit", function (event) {
-            // Evita que o formulário seja enviado
-            event.preventDefault();
-            // Obtém o botão que foi pressionado
-            console.log("CLICKED BTN: " + event.submitter.name);
-            if (event.submitter.name == "Upload") {
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.name = "load_video_file";
+        fileInput.id = "load_video_file";
+        fileInput.accept = "video/mp4";
+        fileInput.style.display = "none";
+        form.appendChild(fileInput);
+        fileInput.addEventListener("change", function () {
+            console.log("OnChange");
+            if (fileInput.files.length > 0) {
                 document.getElementById("gcs_form").style.display = "none";
                 document.getElementById("load_Form").style.display = "none";
+                document.getElementById("return_form").style.display = "none";
                 document.getElementById("load_message").style.display = "block";
+                form.submit();
             }
-            this.submit();
+        });
+
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            if (event.submitter.name == "Upload") 
+                fileInput.click();
         });
     </script>
 </body>

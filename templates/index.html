@@ -28,8 +28,7 @@
             <br><br>
             {% endif %}
             <span id="load_gcs_group">
-                <button type="submit" name="load_gcs_file" class="btn-build-style">Carregar midia do
-                    GCS</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="load_gcs_file" class="btn-build-style">Carregar arquivo de video</button>&nbsp;&nbsp;&nbsp;
                 <input type="hidden" name="gcs_uri" value="{{gcs_uri}}">
                 {% if gcs_uri != "" %}
                 <input type="text" name="gcs_uri_label" readonly class="txt-general-style" value="{{ gcs_uri }}">
@@ -154,7 +153,6 @@
                             document.getElementById("load_gcs_group").style.display = "none";
                             document.getElementById("clear_context").style.display = "inline"
                         }
-
                     };
                     reader.readAsText(file);
                 });

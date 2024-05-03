@@ -12,22 +12,15 @@
     <h1>Processando...</h1>
 
     {% if method == "regenerate" %}
-        <p style="color: white; font-weight: bold;">Aguarde enquanto processamos sua solicitação.</p>
+        <p style="color: white; font-weight: bold;">Processando sua solicitação.    AGUARDE ...</p>
         <form action="/regenerate" method="POST" style="display: inline-block;">
             <input type="hidden" name="model_name" value="{{ model_name }}">
         </form>
     {% endif %}
 
     {% if method == "gcsfile" %}
-        <p style="color: white; font-weight: bold;">Lendo os arquivos de midia dos buckets do GCS.</p>
+        <p style="color: white; font-weight: bold;">Lendo os arquivos de midia dos buckets do GCS.    AGUARDE ....</p>
         <form action="/gcsfile" method="POST" style="display: inline-block;">
-            <input type="hidden" name="model_name" value="{{ model_name }}">
-        </form>
-    {% endif %}
-
-    {% if method == "load_video" %}
-        <p style="color: white; font-weight: bold;">Carregar arquivo de video para o GCS.</p>
-        <form action="/load_video" method="POST" style="display: inline-block;">
             <input type="hidden" name="model_name" value="{{ model_name }}">
         </form>
     {% endif %}

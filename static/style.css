@@ -45,23 +45,23 @@ body {
   }
 
   button {
-    background-color: darkblue;
+    background-color: green;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border: 2px solid darkgreen;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .btn-file {
+    background-color: blue;
     color: white;
     padding: 10px 20px;
     border: none;
     border: 2px solid darkblue;
     border-radius: 5px;
     cursor: pointer;
-    width: 190px;
-  }
-  .btn-file {
-    background-color: dodgerblue;
-    color: white;
-    padding: 5px 10px;
-    border: 2px solid blue;
-    border-radius: 5px;
-    cursor: pointer;
-    width: 190px;
   }
 
   .btn-build-style {

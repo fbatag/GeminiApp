@@ -7,19 +7,22 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, Part, FinishReason
 import vertexai.preview.generative_models as generative_models
 from google.cloud import storage
-#from google.auth.transport import requests
-#from google.oauth2 import id_token
 
 #PROJECT_ID = os.environ.get("PROJECT_ID")
 #REGION = os.environ.get("REGION")
 #GAE = os.environ.get("GAE", "TRUE").upper() == "TRUE"
 #GAE_APP_ID = os.environ.get("GAE_APP_ID", "default")
-VIDEO_BUCKET_NAME = os.environ.get("VIDEO_BUCKET_NAME", "gemini-app-videos-4ab7c")
-
 # Create a Flask app
 app = Flask(__name__)
 #vertexai.init(project=PROJECT_ID, location=REGION)
 print("RELOADING APPLICATION")
+
+
+#GAE_APPLICATION = os.getenv('GAE_APPLICATION')
+#print(GAE_APPLICATION)
+GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT', "4ab7c")
+VIDEO_BUCKET_NAME = os.environ.get("VIDEO_BUCKET_NAME", "gen-ai-app-videos-") + GOOGLE_CLOUD_PROJECT
+print("VIDEO_BUCKET_NAME: " + VIDEO_BUCKET_NAME)
 vertexai.init()
 storage_client = storage.Client()
 
@@ -155,7 +158,6 @@ def gcsfile():
                     index += 1
                 else:
                     buckets[index][1].append([blob.name, gcsFullName(blob)])
-    print(buckets)
     #if len(buckets) == 0:
     #    return renderIndex(any_error="show_error_no_gcs_file")
     return render_template("gcsfile.html", buckets=buckets, model_name=request.form.get("model_name",""))
