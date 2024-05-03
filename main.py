@@ -1,4 +1,5 @@
 import os
+import ast
 from flask import Flask, render_template, request, session, redirect, url_for, send_file
 #import base64
 import json
@@ -17,6 +18,7 @@ from google.cloud import storage
 # Create a Flask app
 app = Flask(__name__)
 #vertexai.init(project=PROJECT_ID, location=REGION)
+print("RELOADING APPLICATION")
 vertexai.init()
 storage_client = storage.Client()
 
@@ -44,7 +46,6 @@ safety_settings = {
 
 # Inicializa o array para armazenar os dados
 global_loaded_prompts = dict()
-print("RELOADING APPLICATION")
 
 def get_iap_user():
     return request.headers.get('X-Goog-Authenticated-User-Email', "None")
@@ -157,18 +158,24 @@ def generate():
     print("Model: " + model_name)
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     chat = model.start_chat()
+    
     token_consumption = []
     #total_token_consumption = [0,0,0]
     loaded_prompts = loadedPrompts()
+    geminiResponse = []
+    flatResponse = ""
+    index = 1
     for promptItem in loaded_prompts:
         prompt = prepare_prompt(promptItem)
-        geminiResponse = chat.send_message(prompt, generation_config=generation_config, safety_settings=safety_settings)
-        usage_metadata = geminiResponse._raw_response.usage_metadata
+        stepResponse = chat.send_message(prompt)
+        usage_metadata = stepResponse._raw_response.usage_metadata
         token_consumption.append((usage_metadata.prompt_token_count, usage_metadata.candidates_token_count, usage_metadata.total_token_count))
+        geminiResponse.append(stepResponse.candidates[0].content.parts[0].text)
+        flatResponse += "*** STEP " + str(index) + " ***\n" + stepResponse.candidates[0].content.parts[0].text +"\n\n"
         # Diferentemente do que eu pensava incialmente, cada mensagem não é estanque:
         # A entrada do passo N+1 inclui os tokens de entrada do passo N+1 mais os passos de saída do passo N
         #tokenConsumptionMessage(usage_metadata, total_token_consumption)
-    return render_template("generate.html", loaded_prompts=loaded_prompts, geminiResponse=geminiResponse, model_name=model_name, 
+    return render_template("generate.html", loaded_prompts=loaded_prompts, geminiResponse=geminiResponse, flatResponse=flatResponse, model_name=model_name, 
                            token_consumption=token_consumption, total_token_consumption=token_consumption[len(token_consumption)-1])
 
 def tokenConsumptionMessage(usage_metadata, token_consumption):
