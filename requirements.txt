@@ -2,3 +2,4 @@ Flask
 google-cloud-aiplatform
 google-cloud-storage
 google-auth
+appengine-python-standard

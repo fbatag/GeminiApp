@@ -1,12 +1,13 @@
 import os
-import ast
 from flask import Flask, render_template, request, session, redirect, url_for, send_file
-#import base64
 import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, FinishReason
 import vertexai.preview.generative_models as generative_models
 from google.cloud import storage
+from google.appengine.api import memcache, wrap_wsgi_app
+from google.appengine.ext import db, ndb
+
 
 #PROJECT_ID = os.environ.get("PROJECT_ID")
 #REGION = os.environ.get("REGION")
@@ -14,15 +15,14 @@ from google.cloud import storage
 #GAE_APP_ID = os.environ.get("GAE_APP_ID", "default")
 # Create a Flask app
 app = Flask(__name__)
-#vertexai.init(project=PROJECT_ID, location=REGION)
+app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
 print("RELOADING APPLICATION")
-
-
 #GAE_APPLICATION = os.getenv('GAE_APPLICATION')
 #print(GAE_APPLICATION)
 GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT', "4ab7c")
 VIDEO_BUCKET_NAME = os.environ.get("VIDEO_BUCKET_NAME", "gen-ai-app-videos-") + GOOGLE_CLOUD_PROJECT
 print("VIDEO_BUCKET_NAME: " + VIDEO_BUCKET_NAME)
+GAE_ENV= GOOGLE_CLOUD_PROJECT != '4ab7c'
 vertexai.init()
 storage_client = storage.Client()
 
@@ -57,8 +57,24 @@ def get_iap_user():
 def loadedPrompts():
     user = get_iap_user()
     if user not in global_loaded_prompts:
-        global_loaded_prompts[user] = []
+        loadedPrompts = []
+        if GAE_ENV:
+            cachedLoadedPrompts = memcache.get(user)
+            if cachedLoadedPrompts is None:
+                #memcache.add(user, db.model_from_protobuf(loadedPrompts), 14400) # four hours expiration
+                memcache.add(user, json.dumps(loadedPrompts), 14400) # four hours expiration
+            else:
+                #loadedPrompts = db.model_from_protobuf(cachedLoadedPrompts)
+                loadedPrompts = json.loads(cachedLoadedPrompts)
+        global_loaded_prompts[user] = loadedPrompts
     return global_loaded_prompts[user]
+
+def saveLoadedPrompts(loadedPrompts):
+    user = get_iap_user()
+    if GAE_ENV:
+        memcache.set(user, json.dumps(loadedPrompts))
+        #memcache.set(user, db.model_to_protobuf(loadedPrompts))
+    global_loaded_prompts[user] = loadedPrompts        
 
 def isPromptRepeated(prompt, filename, gcs_uri):
     loaded_prompts = loadedPrompts()
@@ -97,6 +113,7 @@ def index():
                 return renderIndex("show_error_repeated")
             file_content = request.form.get("textfile_content","")
             loaded_prompts.append((prompt, file_content, text_filename, gcs_uri))
+            saveLoadedPrompts(loaded_prompts)
         elif cliked_button == "gcsfile":
             return renderIndex(gcs_uri=request.form["filename"])
         elif cliked_button == "load_gcs_file":
@@ -119,8 +136,7 @@ def renderIndex(any_error="", gcs_uri =""):
     if request.method == "POST" and "model_name" in request.form:
         choosen_model_name = request.form["model_name"]
     print("choosen_model_name: ", choosen_model_name)
-    loaded_prompts = loadedPrompts()
-    return render_template("index.html", user=get_iap_user(), loaded_prompts=loaded_prompts, prompt_len=len(loaded_prompts), choosen_model_name=choosen_model_name, any_error=any_error, gcs_uri=gcs_uri)
+    return render_template("index.html", user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, any_error=any_error, gcs_uri=gcs_uri)
 
 @app.route('/upload_video', methods=['POST'])
 def upload_video():
@@ -230,7 +246,7 @@ def prepare_prompt(promptItem):
 #@app.route("/reset", methods=["POST"])
 def reset():
     print("METHOD: reset")
-    loadedPrompts().clear()
+    saveLoadedPrompts([])
     print("Contexto limpo!")
     return renderIndex("")
 
@@ -244,11 +260,7 @@ def view():
 def load_prompts(prompts_json):
     print("METHOD: load_prompts")
     print(len(prompts_json))
-    loaded_prompts = loadedPrompts()
-    prompts_from_file = json.loads(prompts_json)
-    loaded_prompts.clear()
-    for prompt in prompts_from_file:
-        loaded_prompts.append((prompt[0], prompt[1], prompt[2], prompt[3]))
+    saveLoadedPrompts(json.loads(prompts_json))
 
 def save_prompts():
     print("METHOD: save_prompts")

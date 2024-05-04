@@ -1,6 +1,7 @@
 runtime: python39
 env: standard
 instance_class: F4_1G
+app_engine_apis: true 
 handlers:
   - url: /static/(.*)
     static_files: static/\1
