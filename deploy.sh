@@ -43,3 +43,6 @@ gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam
     --member="user:$USER_EMAIL_DEPLOY" \
     --role="roles/iam.serviceAccountUser"
 
+# permissões necessárias caso o deploy seja feito no AppEngine Flexible
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/logging.logWriter"
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/monitoring.metricWriter"

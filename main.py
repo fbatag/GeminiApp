@@ -14,15 +14,22 @@ from google.appengine.ext import db, ndb
 #GAE = os.environ.get("GAE", "TRUE").upper() == "TRUE"
 #GAE_APP_ID = os.environ.get("GAE_APP_ID", "default")
 # Create a Flask app
+print("(RE)LOADING APPLICATION")
 app = Flask(__name__)
-app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
-print("RELOADING APPLICATION")
-#GAE_APPLICATION = os.getenv('GAE_APPLICATION')
-#print(GAE_APPLICATION)
+#GAE_APPLICATION = os.getenv('GAE_APPLICATION', "")
+#print("GAE_APPLICATION: " + GAE_APPLICATION)
+GAE_SERVICE = os.getenv('GAE_SERVICE', "")
+print("GAE_SERVICE: " + GAE_SERVICE)
+GAE_ENV = os.getenv('GAE_ENV', "")
+print("GAE_ENV: " + GAE_ENV)
+IS_GAE_ENV_STD = GAE_ENV == "standard"
+if IS_GAE_ENV_STD:
+    app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
 GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT', "4ab7c")
 VIDEO_BUCKET_NAME = os.environ.get("VIDEO_BUCKET_NAME", "gen-ai-app-videos-") + GOOGLE_CLOUD_PROJECT
 print("VIDEO_BUCKET_NAME: " + VIDEO_BUCKET_NAME)
-GAE_ENV= GOOGLE_CLOUD_PROJECT != '4ab7c'
+
+
 vertexai.init()
 storage_client = storage.Client()
 
@@ -58,7 +65,7 @@ def loadedPrompts():
     user = get_iap_user()
     if user not in global_loaded_prompts:
         loadedPrompts = []
-        if GAE_ENV:
+        if IS_GAE_ENV_STD:
             cachedLoadedPrompts = memcache.get(user)
             if cachedLoadedPrompts is None:
                 #memcache.add(user, db.model_from_protobuf(loadedPrompts), 14400) # four hours expiration
@@ -71,7 +78,7 @@ def loadedPrompts():
 
 def saveLoadedPrompts(loadedPrompts):
     user = get_iap_user()
-    if GAE_ENV:
+    if IS_GAE_ENV_STD:
         memcache.set(user, json.dumps(loadedPrompts))
         #memcache.set(user, db.model_to_protobuf(loadedPrompts))
     global_loaded_prompts[user] = loadedPrompts        
@@ -131,7 +138,7 @@ def index():
     return renderIndex()
 
 def renderIndex(any_error="", gcs_uri =""):
-    print("renderIndex -> " + any_error)
+    print("METHOD: renderIndex -> " + any_error)
     choosen_model_name = "gemini-1.5-pro-preview-0409"
     if request.method == "POST" and "model_name" in request.form:
         choosen_model_name = request.form["model_name"]
@@ -205,11 +212,19 @@ def generate():
     index = 1
     for promptItem in loaded_prompts:
         prompt = prepare_prompt(promptItem)
-        stepResponse = chat.send_message(prompt)
-        usage_metadata = stepResponse._raw_response.usage_metadata
-        token_consumption.append((usage_metadata.prompt_token_count, usage_metadata.candidates_token_count, usage_metadata.total_token_count))
-        geminiResponse.append(stepResponse.candidates[0].content.parts[0].text)
-        flatResponse += "*** STEP " + str(index) + " ***\n" + stepResponse.candidates[0].content.parts[0].text +"\n\n"
+        try:
+            stepResponse = chat.send_message(prompt)
+            usage_metadata = stepResponse._raw_response.usage_metadata
+            token_consumption.append((usage_metadata.prompt_token_count, usage_metadata.candidates_token_count, usage_metadata.total_token_count))
+            geminiResponse.append(stepResponse.candidates[0].content.parts[0].text)
+            flatResponse += "*** STEP " + str(index) + " ***\n" + stepResponse.candidates[0].content.parts[0].text +"\n\n"
+        except Exception as e:
+            print(e)
+            token_consumption.append((0, 0, 0))
+            geminiResponse.append(str(e))
+            flatResponse += "*** STEP " + str(index) + " ***\n" + str(e) +"\n\n"
+        index += 1
+        
         # Diferentemente do que eu pensava incialmente, cada mensagem não é estanque:
         # A entrada do passo N+1 inclui os tokens de entrada do passo N+1 mais os passos de saída do passo N
         #tokenConsumptionMessage(usage_metadata, total_token_consumption)
@@ -259,7 +274,7 @@ def view():
 
 def load_prompts(prompts_json):
     print("METHOD: load_prompts")
-    print(len(prompts_json))
+    print("Loaded prompt size:" + str(len(prompts_json)))
     saveLoadedPrompts(json.loads(prompts_json))
 
 def save_prompts():
