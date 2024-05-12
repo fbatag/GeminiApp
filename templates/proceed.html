@@ -13,15 +13,17 @@
 
     {% if method == "regenerate" %}
         <p style="color: white; font-weight: bold;">Processando sua solicitação.    AGUARDE ...</p>
-        <form action="/regenerate" method="POST" style="display: inline-block;">
+        <form action="/" method="POST" style="display: inline-block;">
             <input type="hidden" name="model_name" value="{{ model_name }}">
+            <input type="hidden" id="clicked_button" name="clicked_button" value="regenerate">
         </form>
     {% endif %}
 
-    {% if method == "gcsfile" %}
-        <p style="color: white; font-weight: bold;">Lendo os arquivos de midia dos buckets do GCS.    AGUARDE ....</p>
-        <form action="/gcsfile" method="POST" style="display: inline-block;">
+    {% if method == "loadContextsBucket" %}
+        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS.    AGUARDE ....</p>
+        <form action="/" method="POST" style="display: inline-block;">
             <input type="hidden" name="model_name" value="{{ model_name }}">
+            <input type="hidden" id="clicked_button" name="clicked_button" value="loadContextsBucket" >
         </form>
     {% endif %}
 

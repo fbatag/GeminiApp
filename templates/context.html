@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genereciar Projetos e Contextos</title>
+</head>
+
+<body>
+    <h1>Gerenciar projetos e arquivos de contexto no GCS</h1>
+    <br>
+    <form id="load_Form" method="POST" action="/" enctype="multipart/form-data">
+        <input type="hidden" name="model_name" value="{{ model_name }}">
+        <input type="hidden" id="clicked_button" name="clicked_button" value="">
+        <input type="hidden" id="new_prj_name" name="new_prj_name" value="">
+        <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
+
+        <div class="form-load">
+            {% if projects|length > 0 %}
+            <label for="projects_slc">Projeto:</label>
+            <select name="projects_slc" id="projects_slc">
+                {% for project in projects %}
+                <option value="{{ project }}">{{ project }}</option>
+                {% endfor %}
+            </select>&nbsp;&nbsp;&nbsp;
+            {% else %}
+            <p id="load_message" style="font-weight: bold;">
+                Nada encontrado. Use os botões abaixo para criar projetos e adicionar contextos.</p>
+            {% endif %}
+            {% if contexts|length > 0 %}
+            <br><br>
+            <label for="contexts_lst">Contextos:</label>
+            <ul id="contexts_lst">
+                {% for context in contexts %}
+                <li>
+                    {{ context }}
+                </li>
+                {% endfor %}
+            </ul>&nbsp;&nbsp;&nbsp;
+            {% else %}
+                {% if projects|length > 0 %}
+                <p id="load_message" style="font-weight: bold;">
+                    Nenhum contexto encontrado. Use os botões abaixo para criar projetos e adicionar contextos.</p>
+                {% endif %}
+            {% endif %}
+            </div>
+        <br><br>
+        <input type="submit" name="create_prj_btn" value="Criar um projeto" class="btn-file">&nbsp;&nbsp;&nbsp;
+        <input type="submit" name="upload_context_btn" value="Carregar um arquivo de contexto" class="btn-file">&nbsp;&nbsp;&nbsp;
+        <input type="submit" name="ctx_return_btn" value="Retornar" class="btn-general-style">
+    </form>
+    <br><br>
+    <p id="load_message" style="color: white; font-weight: bold; display: none;">
+        Carregando o arquivo para o projeto . AGUARDE ... </p>
+
+    <script>
+        const load_Form = document.getElementById("load_Form");
+        const load_message = document.getElementById('load_message');
+        const clicked_button = document.getElementById("clicked_button");
+        const new_prj_name = document.getElementById("new_prj_name");
+        const choosen_project = document.getElementById("choosen_project");
+
+        const load_context_file = document.createElement("input");
+        load_context_file.type = "file";
+        load_context_file.name = "load_context_file";
+        load_context_file.id = "load_context_file";
+        load_context_file.accept = "video/mp4,.txt,.pdf";
+        load_context_file.style.display = "none";
+        load_Form.appendChild(load_context_file);
+        load_context_file.addEventListener("change", function () {
+            console.log("OnChange");
+            if (this.files.length > 0) {
+                ShowLoadingMessage("Carregando o arquivo para o projeto ");
+                clicked_button.value = "upload_context_btn";
+                load_Form.submit();
+            }
+        });
+        // projects_slc doesn't exist if there are no projects
+        const projects_slc = document.getElementById("projects_slc");
+        if (projects_slc != null){
+            projects_slc.value = choosen_project.value;
+            projects_slc.addEventListener("change", function () {
+                console.log("projects_slc");
+                if (choosen_project.value == this.value) return;
+                choosen_project.value == this.value;
+                clicked_button.value = "manage_contexts_btn";
+                load_Form.submit();
+            });
+        }
+
+        load_Form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            clicked_button.value =event.submitter.name
+            if (event.submitter.name == "create_prj_btn") {
+                const prj_name = prompt("Digite o caminho do novo projeto:");
+                if (!prj_name) return;
+                if (prj_name.trim() == "") {
+                    alert("Entre um nome de projeto válido!");
+                    return;
+                }
+                ShowLoadingMessage("Cfriando o projeto ");
+                new_prj_name.value = prj_name;
+                load_Form.submit();
+            }
+            else if (event.submitter.name == "upload_context_btn") {
+                load_context_file.click();
+            }
+            else {
+                load_Form.submit();
+            }
+
+        });
+
+        function ShowLoadingMessage(message) {
+            load_Form.style.display = "none";
+            load_message.textContent = message + projects_slc.value + ".  AGUARDE ... ";
+            load_message.style.display = "block";
+        }
+
+    </script>
+</body>
+
+</html>

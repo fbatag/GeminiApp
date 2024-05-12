@@ -11,8 +11,8 @@
 <body>
     <h1 style="display: inline-block;">Gerador de conteúdo para modelos de linguagem</h1>
     <b style="float: right; text-align: right;">User: {{ user}}</b>
-    <form action="/" method="POST" enctype="multipart/form-data">
-        <input type="hidden" name="cliked_button">
+    <br>
+    <form id="index_form" action="/" method="POST" enctype="multipart/form-data">
         <div class="form-load">
             <br>
             <label style="color: black; font-weight: bold;" for="prompt">Pedido ao contexto:</label>
@@ -20,33 +20,42 @@
             <textarea name="prompt" id="prompt" rows="3" cols="70" class="txt-general-style"
                 style="width: 100%;"></textarea>
             <br><br>
-            {% if gcs_uri == "" %}
-            <button type="submit" name="load_txt_file" class="btn-build-style">Carregar arquivo texto</button>&nbsp;&nbsp;&nbsp;
-            <input type="hidden" id="textfile_content" name="textfile_content">
-            <input type="text" id="text_filename" name="text_filename" readonly class="txt-general-style"
-                style="display: none;">
-            <br><br>
+            {% if projects|length > 0 %}
+            <label for="projects_slc">Projeto:</label>
+            <select name="projects_slc" id="projects_slc">
+                {% for project in projects %}
+                <option value="{{ project }}">{{ project }}</option>
+                {% endfor %}
+            </select>&nbsp;&nbsp;&nbsp;
+            {% else %}
+            <p id="load_message" style="font-weight: bold;">
+                Nenhum projeto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.</p>
             {% endif %}
-            <span id="load_gcs_group">
-                <button type="submit" name="load_gcs_file" class="btn-build-style">Carregar arquivo de video</button>&nbsp;&nbsp;&nbsp;
-                <input type="hidden" name="gcs_uri" value="{{gcs_uri}}">
-                {% if gcs_uri != "" %}
-                <input type="text" name="gcs_uri_label" readonly class="txt-general-style" value="{{ gcs_uri }}">
-                {% endif %}
-                <br><br>
-            </span>
-            <button type="submit" name="load_context" class="btn-load-style">Carregar contexto</button>&nbsp;&nbsp;&nbsp;
-                {% if gcs_uri != "" %}
-                <input type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style">
-                {% else %}
-                <input type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
-                    style="display: none;">
-                {% endif %}
-                <br>
+            {% if contexts|length > 0 %}
+            <label for="contexts_slc">Contexto:</label>
+            <select name="contexts_slc" id="contexts_slc">
+                {% for context in contexts %}
+                <option value="{{ context }}">{{ context }}</option>
+                {% endfor %}
+            </select>&nbsp;&nbsp;&nbsp;
+            {% else %}
+            {% if projects|length > 0 %}
+            <p id="load_message" style="font-weight: bold;">
+            Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.</p>
+            {% endif %}
+            {% endif %}
+            <br><br>
+            <button type="submit" name="manage_contexts_btn" class="btn-build-style">Gerenciar projetos</button>
+            <br><br>
+            <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar
+                passo</button>&nbsp;&nbsp;&nbsp;
+            <input type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
+                style="display: none;">
+            <br>
         </div>
         <br><br>
         &nbsp;&nbsp;
-        <button type="submit" name="load_prompts" class="btn-load-style">Carregar estória</button>&nbsp;&nbsp;&nbsp;
+        <button type="submit" name="load_prompts_btn" class="btn-load-style">Carregar estória</button>&nbsp;&nbsp;&nbsp;
         {% if loaded_prompts|length > 0 %}
         <button type="submit" name="reset" class="btn-clear-style">Limpar</button>&nbsp;&nbsp;&nbsp;
         <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>
@@ -55,48 +64,38 @@
             <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
             <option value="gemini-1.0-pro-001">Gemini-1.0-pro-001</option>
             <!--option value="gemini-1.5-pro-preview-0215">Gemini-1.5-pro-preview-0215</option-->
-            <input type="hidden" name="choosen_model_name" value="{{ choosen_model_name }}">
+            <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
         </select>&nbsp;&nbsp;&nbsp;
         <button type="submit" name="generate" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
         <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
         <button type="submit" name="save" class="btn-general-style">Salvar</button>
         {% endif %}
-        <input type="hidden" name="prompt_json"></input>
-        <input type="hidden" name="prompts_filename"></input>
+        <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
+        <input type="hidden" id="prompt_history_json" name="prompt_history_json"></input>
+        <input type="hidden" id="prompts_filename" name="prompts_filename"></input>
+        <input type="file" id="load_prompts_file" accept=".json" style="display: none;"></input>
+        <input type="hidden" id="clicked_button" name="clicked_button" value="">
     </form>
     {% if loaded_prompts|length > 0 %}
     <h2>Pedidos e contextos carregados</h2>
-    <!--div class="form-list">
-        <ul>
-            {% for prompt, file_content, filename, gcs_uri_item in loaded_prompts %}
-            <li>
-                {{ loop.index }} - {{ prompt[:50] }} - {{ filename }} - {{ file_content[:50] }} - {{ gcs_uri_item }}
-            </li>
-            {% endfor %}
-        </ul>
-    </div-->
     <div class="form-list">
         <table>
             <thead>
                 <tr>
                     <th>Passo</th>
                     <th>Pedido</th>
-                    <th>Arquivo (texto/midia)</th>
+                    <th>Projeto</th>
                     <th>Contexto</th>
+                    
                 </tr>
             </thead>
             <tbody>
-                {% for prompt, file_content, filename, gcs_uri_item in loaded_prompts %}
+                {% for prompt, project_name, filename in loaded_prompts %}
                 <tr>
                     <td style="text-align: center;">{{ loop.index }}</td>
                     <td>&nbsp;&nbsp;&nbsp;{{ prompt[:50] }}&nbsp;&nbsp;&nbsp;</td>
-                    {% if filename == "" %}
-                    <td>&nbsp;&nbsp;&nbsp;{{ gcs_uri_item }}&nbsp;&nbsp;&nbsp;</td>
-                    <td>** MIDIA **</td>
-                    {% else %}
+                    <td>&nbsp;&nbsp;&nbsp;{{ project_name }}&nbsp;&nbsp;&nbsp;</td>
                     <td>&nbsp;&nbsp;&nbsp;{{ filename }}&nbsp;&nbsp;&nbsp;</td>
-                    <td>&nbsp;&nbsp;&nbsp;{{ file_content[:50] }}</td>
-                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -105,7 +104,31 @@
     {% endif %}
 
     <script>
-        var choosenModel = document.querySelector("input[name=choosen_model_name]");
+        const form = document.querySelector("form");
+        const clicked_button = document.getElementById("clicked_button");
+        const choosen_project = document.getElementById("choosen_project")
+        
+        // projects_slc doesn't exist if there are no projects
+        const projects_slc = document.getElementById("projects_slc");
+        if (projects_slc != null){
+            projects_slc.value = choosen_project.value;
+            projects_slc.addEventListener("change", function () {
+                console.log("projects_slc");
+                if (choosen_project.value == this.value) return;
+                choosen_project.value == this.value;
+                clicked_button.value = "projects_slc";
+                form.submit();
+            });
+        }
+        /*const contexts_slc = document.getElementById("contexts_slc");
+        contexts_slc.addEventListener("change", function () {
+            console.log("contexts_slc");
+            clicked_button.value = "contexts_slc";
+            form.submit();           
+        });*/
+
+
+        var choosenModel = document.getElementById("choosen_model_name");
         if (choosenModel != null && choosenModel.value != "") {
             console.log("MODEL NAME: " + choosenModel.value);
             const selectElement = document.querySelector("select[name=model_name]");
@@ -116,47 +139,35 @@
                 }
             }
         }
+        const load_prompts_file = document.getElementById("load_prompts_file");
+        load_prompts_file.addEventListener("change", function () {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                console.log("CHOOSEN " + clicked_button.value + " FILE: " + file.name + " type: " + file.type);
+                const reader = new FileReader();
+                reader.onload = function () {
+                    document.getElementById("prompt_history_json").value = reader.result;
+                    form.submit();
+                };
+                reader.readAsText(file);
+            }
+        });
 
-        const form = document.querySelector("form");
         // Adiciona um ouvinte de evento ao formulário
         form.addEventListener("submit", function (event) {
             // Evita que o formulário seja enviado
             event.preventDefault();
             // Obtém o botão que foi pressionado
-            clicked_button = document.querySelector("input[name=cliked_button]");
             clicked_button.value = event.submitter.name;
             console.log("CLICKED BTN: " + clicked_button.value);
-            if (clicked_button.value == "load_context") {
+            if (clicked_button.value == "load_context_step_btn") {
                 if (document.getElementById("prompt").value.trim() == "") {
-                    alert("Quando analisando um video, um pedido deve ser fornecido!");
+                    alert("Forneça um pedido ao contexto!");
                     return;
                 }
             }
-            else if (clicked_button.value == "load_prompts" || clicked_button.value == "load_txt_file") {
-                const fileInput = document.createElement("input");
-                fileInput.type = "file";
-                fileInput.name = "prompt_file";
-                if (clicked_button.value == "load_prompts") fileInput.accept = ".json"; else fileInput.accept = ".txt";
-                fileInput.addEventListener("change", function () {
-                    // Obtém o arquivo selecionado
-                    const file = this.files[0];
-                    const reader = new FileReader();
-                    console.log("CHOOSEN " + clicked_button.value + " FILE: " + file.name);
-                    reader.onload = function () {
-                        if (clicked_button.value == "load_prompts") {
-                            document.querySelector("input[name=prompt_json]").value = reader.result;
-                            form.submit();
-                        } else {
-                            document.getElementById("textfile_content").value = reader.result;
-                            document.getElementById("text_filename").style.display = "inline"
-                            document.getElementById("text_filename").value = file.name;//+ " - " + reader.result;
-                            document.getElementById("load_gcs_group").style.display = "none";
-                            document.getElementById("clear_context").style.display = "inline"
-                        }
-                    };
-                    reader.readAsText(file);
-                });
-                fileInput.click();
+            else if (clicked_button.value == "load_prompts_btn") {
+                load_prompts_file.click();
                 return;
             }
             else if (clicked_button.value == "save") {
@@ -166,7 +177,7 @@
                     alert("Entre um nome de arquivo válido!");
                     return;
                 }
-                document.querySelector("input[name=prompts_filename]").value = filename.trim();
+                document.getElementById("prompts_filename").value = filename.trim();
             }
             this.submit();
         });
@@ -247,12 +258,6 @@
 {% if any_error == "show_error_no_gcs_file" %}
 <script>
     alert("Nenhuma midia encontrada nos buckets gcs!");
-</script>
-{% endif %}
-
-{% if any_error == "show_error_video_needs_request" %}
-<script>
-    alert("Quando analisando um video, um pedido deve ser fornecido!");
 </script>
 {% endif %}
 

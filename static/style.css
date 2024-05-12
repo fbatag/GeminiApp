@@ -71,7 +71,7 @@ body {
     border: 2px solid blue;
     border-radius: 5px;
     cursor: pointer;
-    width: 190px;
+    width: 180px;
   }
   
   .btn-load-style {
@@ -82,7 +82,7 @@ body {
     border: 2px solid darkblue;
     border-radius: 5px;
     cursor: pointer;
-    width: 190px;
+    width: 180px;
   }
   
   .btn-proceed-style {

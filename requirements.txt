@@ -1,3 +1,4 @@
+Werkzeug
 gunicorn
 Flask
 google-cloud-aiplatform

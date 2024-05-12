@@ -18,20 +18,17 @@ print("(RE)LOADING APPLICATION")
 app = Flask(__name__)
 #GAE_APPLICATION = os.getenv('GAE_APPLICATION', "")
 #print("GAE_APPLICATION: " + GAE_APPLICATION)
-GAE_SERVICE = os.getenv('GAE_SERVICE', "")
-print("GAE_SERVICE: " + GAE_SERVICE)
-GAE_ENV = os.getenv('GAE_ENV', "")
-print("GAE_ENV: " + GAE_ENV)
-IS_GAE_ENV_STD = GAE_ENV == "standard"
+#GAE_SERVICE = os.getenv('GAE_SERVICE', "")
+#GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT', "4ab7c")
+IS_GAE_ENV_STD = os.getenv('GAE_ENV', "") == "standard"
 if IS_GAE_ENV_STD:
     app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
-GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT', "4ab7c")
-VIDEO_BUCKET_NAME = os.environ.get("VIDEO_BUCKET_NAME", "gen-ai-app-videos-") + GOOGLE_CLOUD_PROJECT
-print("VIDEO_BUCKET_NAME: " + VIDEO_BUCKET_NAME)
 
+storage_client = storage.Client()
+CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
+print("CONTEXTS_BUCKET_NAME: " + CONTEXTS_BUCKET_NAME)
 
 vertexai.init()
-storage_client = storage.Client()
 
 generation_config = {
     "max_output_tokens": 8192,
@@ -57,6 +54,8 @@ safety_settings = {
 
 # Inicializa o array para armazenar os dados
 global_loaded_prompts = dict()
+global_contexts = dict()
+FOLDERS =  "!<FOLDERS>!"
 
 def get_iap_user():
     return request.headers.get('X-Goog-Authenticated-User-Email', "None")
@@ -81,18 +80,14 @@ def saveLoadedPrompts(loadedPrompts):
     if IS_GAE_ENV_STD:
         memcache.set(user, json.dumps(loadedPrompts))
         #memcache.set(user, db.model_to_protobuf(loadedPrompts))
-    global_loaded_prompts[user] = loadedPrompts        
+    global_loaded_prompts[user] = loadedPrompts
 
-def isPromptRepeated(prompt, filename, gcs_uri):
+def isPromptRepeated(prompt, project_name, filename):
     loaded_prompts = loadedPrompts()
     if len(loaded_prompts) > 0:
-        last_loaded_prompt,_,last_loaded_filename, last_gcs_uri = loaded_prompts[len(loaded_prompts)-1]
-        if last_loaded_prompt == prompt and filename == "" and gcs_uri == "":
-            return True
-        if filename != "" and last_loaded_filename == filename:
-            print(last_loaded_filename, " == ", filename)
-            return True
-        if gcs_uri != "" and last_gcs_uri == gcs_uri:
+        #last_loaded_prompt, last_loaded_filename = loaded_prompts[len(loaded_prompts)-1]
+        last_loaded_prompt, last_project, last_loaded_filename = loaded_prompts[-1]
+        if last_loaded_prompt == prompt and last_project == project_name and filename == last_loaded_filename:
             return True
     return False
 
@@ -100,93 +95,115 @@ def isPromptRepeated(prompt, filename, gcs_uri):
 def index():
     loaded_prompts = loadedPrompts()
     print("METHOD: index -> " + request.method + " prompts size: " + str(len(loaded_prompts)))
-    if request.method == "POST" and "cliked_button" in request.form:
-        cliked_button = request.form["cliked_button"]
-        print("cliked_button: ", cliked_button)
-        if cliked_button == "load_context":
-            prompt = request.form.get("prompt", "").strip()
-            # Get uploaded file
-            text_filename = request.form.get("text_filename","")
-            gcs_uri = request.form.get("gcs_uri","")
-            print("prompt, text_filename, gcs_uri: ", prompt, text_filename, gcs_uri)
-            if prompt == "" and text_filename == "" and gcs_uri == "":
-                return renderIndex("show_error_is_empty")
-            if text_filename != "" and gcs_uri != "":
-                return renderIndex("show_error_mixed_contexts")
-            #if prompt == "" and gcs_uri != "":
-            #    return renderIndex("show_error_video_needs_request")
-            # se o prompt é repetido, é um RE-POST então, ignore
-            if isPromptRepeated(prompt, text_filename, gcs_uri):
-                return renderIndex("show_error_repeated")
-            file_content = request.form.get("textfile_content","")
-            loaded_prompts.append((prompt, file_content, text_filename, gcs_uri))
-            saveLoadedPrompts(loaded_prompts)
-        elif cliked_button == "gcsfile":
-            return renderIndex(gcs_uri=request.form["filename"])
-        elif cliked_button == "load_gcs_file":
-            return proceed("gcsfile")
-        elif cliked_button == "generate":
-            return proceed("regenerate")
-        elif cliked_button == "reset":
-            return reset()
-        elif cliked_button == "view":
-            return view()
-        elif cliked_button == "save":
-            return save_prompts()
-        elif cliked_button == "load_prompts":
-            load_prompts(request.form["prompt_json"])
+    print(request.form.items)
+    clicked_button = request.form.get('clicked_button', "NOT_FOUND")
+    print("clicked_button: ", clicked_button)
+    if clicked_button == "load_context_step_btn":
+        prompt = request.form.get("prompt", "").strip()
+        # Get uploaded file
+        project_name = request.form.get("projects_slc","")
+        context_filename = request.form.get("contexts_slc","")
+        if prompt == "":
+            return renderIndex(any_error="show_error_is_empty")
+        if isPromptRepeated(prompt, project_name, context_filename):
+            return renderIndex(any_error="show_error_repeated")
+        loaded_prompts.append((prompt, project_name, context_filename))
+        saveLoadedPrompts(loaded_prompts)
+    elif clicked_button == "loadContextsBucket" or clicked_button == "ctx_return_btn":
+        loadContextsBucket()
+        renderIndex()
+    elif clicked_button == "manage_contexts_btn":
+        return renderIndex("context.html")
+    elif clicked_button == "upload_context_btn":
+        uploadContext()
+        loadContextsBucket()
+        return renderIndex("context.html")
+    elif clicked_button == "create_prj_btn":
+        create_project(request.form["new_prj_name"])
+        loadContextsBucket()
+        return renderIndex("context.html")
+    elif clicked_button == "projects_slc":
+        return renderIndex()
+    elif clicked_button == "generate":
+        return proceed("regenerate")
+    elif clicked_button == "regenerate":
+        return generate()
+    elif clicked_button == "reset":
+        return reset()
+    elif clicked_button == "view":
+        return view()
+    elif clicked_button == "save":
+        return save_prompts()
+    elif clicked_button == "load_prompts_btn":
+        load_prompts(request.form["prompt_history_json"])
     return renderIndex()
 
-def renderIndex(any_error="", gcs_uri =""):
+def renderIndex(page="index.html", any_error=""):
     print("METHOD: renderIndex -> " + any_error)
-    choosen_model_name = "gemini-1.5-pro-preview-0409"
-    if request.method == "POST" and "model_name" in request.form:
-        choosen_model_name = request.form["model_name"]
-    print("choosen_model_name: ", choosen_model_name)
-    return render_template("index.html", user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, any_error=any_error, gcs_uri=gcs_uri)
+    global global_contexts
+    gc = global_contexts
+    if not FOLDERS in gc:
+        return proceed("loadContextsBucket")
+    project = request.form.get("projects_slc", "")
+    choosen_model_name = request.form.get("model_name", "gemini-1.5-pro-preview-0409")
+    print("gc[FOLDERS]")
+    print(gc[FOLDERS])
+    if project == "" and len(gc[FOLDERS]) > 0:
+        project = gc[FOLDERS][0]
+    if project == "" or len(gc[FOLDERS]) == 0:
+        print("EMPTY ** choosen_model_name="+ choosen_model_name +" project=" + project + " projects=[] contexts=[]")
+        return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=[], contexts=[], any_error=any_error)
+    print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
+    return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=gc[FOLDERS], contexts=gc[project], any_error=any_error)
 
-@app.route('/upload_video', methods=['POST'])
-def upload_video():
-    print("METHOD: upload_video", request.method)
-    file = request.files['load_video_file']
+def uploadContext():
+    print("METHOD: uploadContext", request.method)
+    project = request.form["projects_slc"]
+    file = request.files["load_context_file"]
     if file:
-        bucket_name = VIDEO_BUCKET_NAME
-        filename = file.filename
         # Cria um cliente de armazenamento
         storage_client = storage.Client()
         # Cria um bucket se ele não existir
-        bucket = storage_client.bucket(bucket_name)
+        bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
         if not bucket.exists():
             bucket.create()
         # Faz o upload do arquivo para o bucket
-        blob = bucket.blob(filename)
-        blob.upload_from_file(file, content_type='video/mp4')
+        blob = bucket.blob(project + "/" + file.filename)
+        print(file.content_type)
+        #blob.upload_from_file(file, content_type='video/mp4')
+        blob.upload_from_file(file, content_type=file.content_type)
 
-    return gcsfile()
 
-@app.route("/gcsfile", methods=["GET", "POST"])
-def gcsfile():
-    print("METHOD: gcsfile", request.method)
-    buckets = []
-    last_bck_name = ""
-    index = -1
-    for bucket in storage_client.list_buckets():
-        for blob in bucket.list_blobs():
-            if blob.content_type == "video/mp4":
-                if last_bck_name != blob.bucket.name:
-                    files = []
-                    files.append([blob.name, gcsFullName(blob)])
-                    buckets.append([blob.bucket.name, files])
-                    last_bck_name = blob.bucket.name
-                    index += 1
-                else:
-                    buckets[index][1].append([blob.name, gcsFullName(blob)])
-    #if len(buckets) == 0:
-    #    return renderIndex(any_error="show_error_no_gcs_file")
-    return render_template("gcsfile.html", buckets=buckets, model_name=request.form.get("model_name",""))
+def loadContextsBucket():
+    print("METHOD: loadContextsBucket")
+    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
+    if not bucket.exists():
+        bucket.create()
+    blobs = bucket.list_blobs()
+    gc = dict()
+    projects = []
+    for blob in blobs:
+        # Extract folder name by splitting on '/' and taking everything but the last part
+        parts = blob.name.split('/')
+        if len(parts) > 1:
+            folder_name = '/'.join(parts[:-1])
+        else:
+            folder_name = "/"  # Root level
+        # Add blob to the corresponding folder list
+        if not folder_name in gc:
+            gc[folder_name] = []
+            projects.append(folder_name)
+        if parts[-1]:
+            gc[folder_name].append(parts[-1])
+    gc[FOLDERS]  = projects
+    global global_contexts
+    global_contexts = gc
 
-def gcsFullName(blob):
-    return "gs://" + blob.bucket.name +"/"+ blob.name
+def create_project(new_prj_name):
+    print("METHOD: create_project", new_prj_name)
+    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
+    blob = bucket.blob(new_prj_name + "/")
+    blob.upload_from_string("")
 
 @app.route("/proceed", methods=["POST"])
 def proceed(method="regenerate"):
@@ -194,9 +211,9 @@ def proceed(method="regenerate"):
     if method == "regenerate":
         if len(loadedPrompts()) == 0:
             return renderIndex(any_error="show_error_no_prompts")
-    return render_template("proceed.html", method=method, model_name=request.form.get("model_name",""))
+    return render_template("proceed.html", method=method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME)
 
-@app.route("/regenerate", methods=["POST"])
+#@app.route("/regenerate", methods=["POST"])
 def generate():
     print("METHOD: regenerate")
     model_name = request.form["model_name"]
@@ -229,7 +246,7 @@ def generate():
         # A entrada do passo N+1 inclui os tokens de entrada do passo N+1 mais os passos de saída do passo N
         #tokenConsumptionMessage(usage_metadata, total_token_consumption)
     return render_template("generate.html", loaded_prompts=loaded_prompts, geminiResponse=geminiResponse, flatResponse=flatResponse, model_name=model_name, 
-                           token_consumption=token_consumption, total_token_consumption=token_consumption[len(token_consumption)-1])
+                           token_consumption=token_consumption, total_token_consumption=token_consumption[-1])
 
 def tokenConsumptionMessage(usage_metadata, token_consumption):
     token_consumption[0] += usage_metadata.prompt_token_count
@@ -239,31 +256,34 @@ def tokenConsumptionMessage(usage_metadata, token_consumption):
 
 def prepare_prompt(promptItem):
     print("METHOD: prepare_prompt")
-    prompt, contexto, filename , gcs_uri = promptItem
-    print("prompt:", prompt, "filename:", filename, "video;", gcs_uri)
-    # verificar se a string "prompt" contem a substring "{xxxx}"
-    if contexto == "" and gcs_uri == "":
-        return prompt
-    if prompt == "" and gcs_uri == "":
-        return contexto
-    # verificar se a string "prompt" contem a substring "{contexto}"'
-    if gcs_uri == "":
-        if not "{contexto}" in prompt:
-            return prompt + f" \"{contexto}\""
-        else: 
-            return (prompt.replace("{contexto}", f" \"{contexto}\""))
-    #if "{contexto}" in prompt: necessário ?
-    #    return (prompt.replace("{contexto}", f" \"{contexto}\""))    
-    #return ["\"\"" + prompt + "\"\"" , Part.from_uri(mime_type="video/mp4", uri="gs://"+ gcs_uri)]
-    return [prompt, Part.from_uri(mime_type="video/mp4", uri=gcs_uri)]
+    prompt, project_name, filename = promptItem
+    print("prompt: ", prompt, " - project: ", project_name, " - filename: ", filename)
+    #if filename != "":
+        #if not "{contexto}" in prompt:
+            #return prompt + f" \"{filename}\""
+        #else: 
+            #return (prompt.replace("{contexto}", f" \"{filename}\""))
+    uri="gs://" + CONTEXTS_BUCKET_NAME +"/"+ project_name + "/" + filename
+    file_type = getFileType(filename)
+    #print("file_type: ", file_type)
+    #print("uri: ", uri)
+    return [prompt, Part.from_uri(mime_type=file_type, uri=uri)]
 
+def getFileType(filename):
+    print("METHOD: getFileType")
+    file_type = filename.split(".").pop()
+    if  file_type == "mp4":
+        return "video/mp4"
+    elif file_type == "pdf":
+        return "application/pdf"
+    return "text/plain"
 
 #@app.route("/reset", methods=["POST"])
 def reset():
     print("METHOD: reset")
     saveLoadedPrompts([])
     print("Contexto limpo!")
-    return renderIndex("")
+    return renderIndex()
 
 def view():
     print("METHOD: view")
@@ -280,10 +300,7 @@ def load_prompts(prompts_json):
 def save_prompts():
     print("METHOD: save_prompts")
     loaded_prompts = loadedPrompts()
-    #if len(loaded_prompts) == 0:
-    #    return renderIndex("show_error_no_prompts_to_save")
     prompts_filename = request.form["prompts_filename"] + ".json"
-    print(prompts_filename)
     # Converte a lista "loaded_prompts" para um objeto JSON
     json_data = json.dumps(loaded_prompts)
     prompts_json_path = os.path.join(tempDir(), "prompts_file.json")
