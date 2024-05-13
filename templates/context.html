@@ -17,7 +17,7 @@
         <input type="hidden" id="new_prj_name" name="new_prj_name" value="">
         <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
 
-        <div class="form-load">
+        <div id="div_projects" class="form-load">
             {% if projects|length > 0 %}
             <label for="projects_slc">Projeto:</label>
             <select name="projects_slc" id="projects_slc">
@@ -26,7 +26,7 @@
                 {% endfor %}
             </select>&nbsp;&nbsp;&nbsp;
             {% else %}
-            <p id="load_message" style="font-weight: bold;">
+            <p id="projects_message" style="font-weight: bold;">
                 Nada encontrado. Use os botões abaixo para criar projetos e adicionar contextos.</p>
             {% endif %}
             {% if contexts|length > 0 %}
@@ -41,26 +41,28 @@
             </ul>&nbsp;&nbsp;&nbsp;
             {% else %}
                 {% if projects|length > 0 %}
-                <p id="load_message" style="font-weight: bold;">
+                <p id="context_message" style="font-weight: bold;">
                     Nenhum contexto encontrado. Use os botões abaixo para criar projetos e adicionar contextos.</p>
                 {% endif %}
             {% endif %}
             </div>
         <br><br>
-        <input type="submit" name="create_prj_btn" value="Criar um projeto" class="btn-file">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="upload_context_btn" value="Carregar um arquivo de contexto" class="btn-file">&nbsp;&nbsp;&nbsp;
-        <input type="submit" name="ctx_return_btn" value="Retornar" class="btn-general-style">
+        <input type="submit" id="create_prj_btn" name="create_prj_btn" value="Criar um projeto" class="btn-file">&nbsp;&nbsp;&nbsp;
+        {% if projects|length > 0 %}
+        <input type="submit" id="upload_context_btn"  name="upload_context_btn" value="Carregar um arquivo de contexto" class="btn-file">&nbsp;&nbsp;&nbsp;
+        {% endif %}
+        <input type="submit" id="ctx_return_btn" name="ctx_return_btn" value="Retornar" class="btn-general-style">
     </form>
     <br><br>
     <p id="load_message" style="color: white; font-weight: bold; display: none;">
         Carregando o arquivo para o projeto . AGUARDE ... </p>
-
+    
     <script>
         const load_Form = document.getElementById("load_Form");
-        const load_message = document.getElementById('load_message');
         const clicked_button = document.getElementById("clicked_button");
         const new_prj_name = document.getElementById("new_prj_name");
         const choosen_project = document.getElementById("choosen_project");
+        const projects_slc = document.getElementById("projects_slc");
 
         const load_context_file = document.createElement("input");
         load_context_file.type = "file";
@@ -72,13 +74,12 @@
         load_context_file.addEventListener("change", function () {
             console.log("OnChange");
             if (this.files.length > 0) {
-                ShowLoadingMessage("Carregando o arquivo para o projeto ");
+                ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
                 clicked_button.value = "upload_context_btn";
                 load_Form.submit();
             }
         });
         // projects_slc doesn't exist if there are no projects
-        const projects_slc = document.getElementById("projects_slc");
         if (projects_slc != null){
             projects_slc.value = choosen_project.value;
             projects_slc.addEventListener("change", function () {
@@ -94,13 +95,14 @@
             event.preventDefault();
             clicked_button.value =event.submitter.name
             if (event.submitter.name == "create_prj_btn") {
-                const prj_name = prompt("Digite o caminho do novo projeto:");
+                prj_name = prompt("Digite o caminho do novo projeto:");
                 if (!prj_name) return;
-                if (prj_name.trim() == "") {
+                prj_name = prj_name.trim();
+                if (prj_name == "") {
                     alert("Entre um nome de projeto válido!");
                     return;
                 }
-                ShowLoadingMessage("Cfriando o projeto ");
+                ShowLoadingMessage("Criando o projeto \"" + prj_name + "\".  AGUARDE ... ");
                 new_prj_name.value = prj_name;
                 load_Form.submit();
             }
@@ -114,9 +116,10 @@
         });
 
         function ShowLoadingMessage(message) {
-            load_Form.style.display = "none";
-            load_message.textContent = message + projects_slc.value + ".  AGUARDE ... ";
+            load_message = document.getElementById('load_message');
+            load_message.textContent = message;
             load_message.style.display = "block";
+            load_Form.style.display = "none";
         }
 
     </script>

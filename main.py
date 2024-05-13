@@ -10,7 +10,8 @@ from google.appengine.ext import db, ndb
 
 
 #PROJECT_ID = os.environ.get("PROJECT_ID")
-#REGION = os.environ.get("REGION")
+REGION = os.environ.get("REGION")
+print(REGION)
 #GAE = os.environ.get("GAE", "TRUE").upper() == "TRUE"
 #GAE_APP_ID = os.environ.get("GAE_APP_ID", "default")
 # Create a Flask app
@@ -56,6 +57,7 @@ safety_settings = {
 global_loaded_prompts = dict()
 global_contexts = dict()
 FOLDERS =  "!<FOLDERS>!"
+
 
 def get_iap_user():
     return request.headers.get('X-Goog-Authenticated-User-Email', "None")
@@ -109,9 +111,13 @@ def index():
             return renderIndex(any_error="show_error_repeated")
         loaded_prompts.append((prompt, project_name, context_filename))
         saveLoadedPrompts(loaded_prompts)
-    elif clicked_button == "loadContextsBucket" or clicked_button == "ctx_return_btn":
+    elif clicked_button == "update_contexts_btn": 
+        return proceed("loadContextsBucket")
+    #elif clicked_button == "ctx_return_btn": 
+    #    return proceed("loadContextsBucket")
+    elif clicked_button == "loadContextsBucket":
         loadContextsBucket()
-        renderIndex()
+        return renderIndex()
     elif clicked_button == "manage_contexts_btn":
         return renderIndex("context.html")
     elif clicked_button == "upload_context_btn":
@@ -146,8 +152,6 @@ def renderIndex(page="index.html", any_error=""):
         return proceed("loadContextsBucket")
     project = request.form.get("projects_slc", "")
     choosen_model_name = request.form.get("model_name", "gemini-1.5-pro-preview-0409")
-    print("gc[FOLDERS]")
-    print(gc[FOLDERS])
     if project == "" and len(gc[FOLDERS]) > 0:
         project = gc[FOLDERS][0]
     if project == "" or len(gc[FOLDERS]) == 0:
@@ -156,29 +160,38 @@ def renderIndex(page="index.html", any_error=""):
     print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
     return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=gc[FOLDERS], contexts=gc[project], any_error=any_error)
 
+def getBucket():
+    storage_client = storage.Client()
+    # Cria um bucket se ele não existir
+    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
+    if not bucket.exists():
+        bucket.iam_configuration.uniform_bucket_level_access_enabled = True
+        #bucket.create(location=REGION)
+        bucket.create()
+        print("Bucket {} created".format(CONTEXTS_BUCKET_NAME))
+    return bucket        
+
+def create_project(new_prj_name):
+    print("METHOD: create_project", new_prj_name)
+    bucket = getBucket()
+    blob = bucket.blob(new_prj_name + "/")
+    blob.upload_from_string("")
+    
 def uploadContext():
     print("METHOD: uploadContext", request.method)
     project = request.form["projects_slc"]
     file = request.files["load_context_file"]
     if file:
-        # Cria um cliente de armazenamento
-        storage_client = storage.Client()
-        # Cria um bucket se ele não existir
-        bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
-        if not bucket.exists():
-            bucket.create()
+        bucket = getBucket()
         # Faz o upload do arquivo para o bucket
         blob = bucket.blob(project + "/" + file.filename)
         print(file.content_type)
         #blob.upload_from_file(file, content_type='video/mp4')
         blob.upload_from_file(file, content_type=file.content_type)
 
-
 def loadContextsBucket():
     print("METHOD: loadContextsBucket")
-    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
-    if not bucket.exists():
-        bucket.create()
+    bucket = getBucket()
     blobs = bucket.list_blobs()
     gc = dict()
     projects = []
@@ -199,11 +212,6 @@ def loadContextsBucket():
     global global_contexts
     global_contexts = gc
 
-def create_project(new_prj_name):
-    print("METHOD: create_project", new_prj_name)
-    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
-    blob = bucket.blob(new_prj_name + "/")
-    blob.upload_from_string("")
 
 @app.route("/proceed", methods=["POST"])
 def proceed(method="regenerate"):
