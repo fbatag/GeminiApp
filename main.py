@@ -4,6 +4,7 @@ import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, FinishReason
 import vertexai.preview.generative_models as generative_models
+from google.cloud import vision
 from google.cloud import storage
 from google.appengine.api import memcache, wrap_wsgi_app
 from google.appengine.ext import db, ndb
@@ -151,20 +152,21 @@ def renderIndex(page="index.html", any_error=""):
     if not FOLDERS in gc:
         return proceed("loadContextsBucket")
     project = request.form.get("projects_slc", "")
-    choosen_model_name = request.form.get("model_name", "gemini-1.5-pro-preview-0409")
+    choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-preview-0514")
     if project == "" and len(gc[FOLDERS]) > 0:
         project = gc[FOLDERS][0]
     if project == "" or len(gc[FOLDERS]) == 0:
-        print("EMPTY ** choosen_model_name="+ choosen_model_name +" project=" + project + " projects=[] contexts=[]")
+        #print("EMPTY ** choosen_model_name="+ choosen_model_name +" project=" + project + " projects=[] contexts=[]")
         return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=[], contexts=[], any_error=any_error)
-    print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
+    #print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
     return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=gc[FOLDERS], contexts=gc[project], any_error=any_error)
 
 def getBucket():
     storage_client = storage.Client()
     # Cria um bucket se ele não existir
-    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME)
+    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
     if not bucket.exists():
+        print("O bucket '" + CONTEXTS_BUCKET_NAME + "' não existe no projeto '" + storage_client.project + "'. Criando ..")
         bucket.iam_configuration.uniform_bucket_level_access_enabled = True
         #bucket.create(location=REGION)
         bucket.create()
@@ -185,9 +187,29 @@ def uploadContext():
         bucket = getBucket()
         # Faz o upload do arquivo para o bucket
         blob = bucket.blob(project + "/" + file.filename)
-        print(file.content_type)
-        #blob.upload_from_file(file, content_type='video/mp4')
         blob.upload_from_file(file, content_type=file.content_type)
+        #try:
+        #    convertToText(project, file)
+        #except Exception as e:
+        #    print(e)
+
+def convertToText(folder, file):
+    if file.content_type != "application/pdf":
+        return
+    print("METHOD: convertToText", folder, file.filename)
+    src_uri = uri=getGsUri(folder, file.filename)
+    dst_uri = uri=getGsUri(folder, file.filename.replace(".pdf", ".txt"))
+    client = vision.ImageAnnotatorClient()
+    feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
+    gcs_source = vision.GcsSource(uri=src_uri)
+    input_config = vision.InputConfig(gcs_source=gcs_source, mime_type=file.content_type)
+    gcs_destination = vision.GcsDestination(uri=dst_uri)
+    output_config = vision.OutputConfig(gcs_destination=gcs_destination, batch_size=2)
+    async_request = vision.AsyncAnnotateFileRequest(
+       features=[feature], input_config=input_config, output_config=output_config
+    )
+    operation = client.async_batch_annotate_files(requests=[async_request])
+    operation.result(timeout=420)
 
 def loadContextsBucket():
     print("METHOD: loadContextsBucket")
@@ -214,12 +236,12 @@ def loadContextsBucket():
 
 
 @app.route("/proceed", methods=["POST"])
-def proceed(method="regenerate"):
-    print("METHOD: proceed")
-    if method == "regenerate":
+def proceed(target_method="regenerate"):
+    print("METHOD: proceed" + " target_method: " + target_method)
+    if target_method == "regenerate":
         if len(loadedPrompts()) == 0:
             return renderIndex(any_error="show_error_no_prompts")
-    return render_template("proceed.html", method=method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME)
+    return render_template("proceed.html", target_method=target_method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME)
 
 #@app.route("/regenerate", methods=["POST"])
 def generate():
@@ -262,6 +284,9 @@ def tokenConsumptionMessage(usage_metadata, token_consumption):
     token_consumption[2] += usage_metadata.total_token_count
     return 
 
+def getGsUri(folder, filename):
+    return "gs://" + CONTEXTS_BUCKET_NAME +"/"+ folder + "/" + filename
+
 def prepare_prompt(promptItem):
     print("METHOD: prepare_prompt")
     prompt, project_name, filename = promptItem
@@ -271,11 +296,12 @@ def prepare_prompt(promptItem):
             #return prompt + f" \"{filename}\""
         #else: 
             #return (prompt.replace("{contexto}", f" \"{filename}\""))
-    uri="gs://" + CONTEXTS_BUCKET_NAME +"/"+ project_name + "/" + filename
+    uri=getGsUri(project_name, filename)
     file_type = getFileType(filename)
     #print("file_type: ", file_type)
     #print("uri: ", uri)
-    return [prompt, Part.from_uri(mime_type=file_type, uri=uri)]
+    return [Part.from_uri( uri=uri, mime_type=file_type), prompt]
+    #return [prompt, Part.from_uri( uri=uri, mime_type=file_type)]
 
 def getFileType(filename):
     print("METHOD: getFileType")

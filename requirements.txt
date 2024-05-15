@@ -2,6 +2,6 @@ Werkzeug
 gunicorn
 Flask
 google-cloud-aiplatform
+google-cloud-vision
 google-cloud-storage
-google-auth
 appengine-python-standard

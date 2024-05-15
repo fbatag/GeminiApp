@@ -1,4 +1,5 @@
-export PROJECT_ID=<PROJECT_ID>
+gcloud config set project <projecto a ser usado> #- rodar se "gcloud config get project" retornar um projeto diferente do desejado
+export PROJECT_ID=$(gcloud config get project)
 export REGION=<REGION> # deve ser uma região que onde o Gemini esteja deploiado - us-central1 southamerica-east1 us-east1 us-east4
 export SUPPORT_EMAIL=<mail do user executando estes comandos>
 export USER_EMAIL=<user do dominio - que tem acesso ao console GCP>
@@ -16,11 +17,16 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role roles/aiplatform.user
 
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role roles/serviceusage.serviceUsageConsumer
+
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable appengine.googleapis.com
 gcloud services enable cloudbuild.googleapis.com
 gcloud services enable iap.googleapis.com 
+gcloud services enable vision.googleapis.com
 
 gcloud app create --project=$PROJECT_ID --region=$REGION --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
@@ -30,23 +36,28 @@ gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SU
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp
 gcloud iap web enable --resource-type=app-engine 
     
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL" --role="roles/iap.httpsResourceAccessor"
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL" --role=roles/iap.httpsResourceAccessor
 
 
 # o trecho a seguir é somente se o usuário que continuara atualziando as versões é diferente e terá menos permissões
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/appengine.appAdmin"
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/cloudbuild.builds.editor"
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/storage.admin"
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/viewer"
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/appengine.appAdmin
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/cloudbuild.builds.editor
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/storage.admin
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/viewer
 gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
     --member="user:$USER_EMAIL_DEPLOY" \
     --role="roles/iam.serviceAccountUser"
 
-# permissões necessárias caso o deploy seja feito no AppEngine Flexible
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/logging.logWriter"
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role="roles/monitoring.metricWriter"
+# permissões necessárias caso o deploy seja feito no AppEngine Flexible/Cloud Run (?)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role=roles/logging.logWriter
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role --role=roles/monitoring.metricWriter
 
-#deploy em Cloud Run (nmão é necessário yaml)
+
+#deploy em Cloud Run (não é necessário yaml)
 export SERVICE_NAME=gemini-app-ui
 # primeiro deploy
 gcloud run deploy $SERVICE_NAME --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com --region=$REGION --source . --quiet
