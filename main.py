@@ -98,7 +98,6 @@ def isPromptRepeated(prompt, project_name, filename):
 def index():
     loaded_prompts = loadedPrompts()
     print("METHOD: index -> " + request.method + " prompts size: " + str(len(loaded_prompts)))
-    print(request.form.items)
     clicked_button = request.form.get('clicked_button', "NOT_FOUND")
     print("clicked_button: ", clicked_button)
     if clicked_button == "load_context_step_btn":
@@ -122,7 +121,11 @@ def index():
     elif clicked_button == "manage_contexts_btn":
         return renderIndex("context.html")
     elif clicked_button == "upload_context_btn":
-        uploadContext()
+        uploadContext(request.form["projects_slc"],request.files["load_context_file"])
+        loadContextsBucket()
+        return renderIndex("context.html")
+    elif clicked_button == "delete_context_btn":
+        deleteContext(request.form["projects_slc"], request.form["context_to_delete"])
         loadContextsBucket()
         return renderIndex("context.html")
     elif clicked_button == "create_prj_btn":
@@ -179,10 +182,8 @@ def create_project(new_prj_name):
     blob = bucket.blob(new_prj_name + "/")
     blob.upload_from_string("")
     
-def uploadContext():
-    print("METHOD: uploadContext", request.method)
-    project = request.form["projects_slc"]
-    file = request.files["load_context_file"]
+def uploadContext(project, file):
+    print("METHOD: uploadContext")
     if file:
         bucket = getBucket()
         # Faz o upload do arquivo para o bucket
@@ -193,12 +194,23 @@ def uploadContext():
         #except Exception as e:
         #    print(e)
 
+def deleteContext(folder, filename):
+    print("METHOD: deleteContext")
+    bucket = getBucket()
+    blob = bucket.blob(folder + "/" + filename)    
+    print("Deleting" + folder + "/"   + filename)
+    try:
+        blob.delete()
+    except Exception as e:
+        print(f"Error deleting object '{blob.name}': {e}")
+
 def convertToText(folder, file):
     if file.content_type != "application/pdf":
         return
     print("METHOD: convertToText", folder, file.filename)
     src_uri = uri=getGsUri(folder, file.filename)
     dst_uri = uri=getGsUri(folder, file.filename.replace(".pdf", ".txt"))
+    storage_client = storage.Client()
     client = vision.ImageAnnotatorClient()
     feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
     gcs_source = vision.GcsSource(uri=src_uri)
@@ -233,7 +245,6 @@ def loadContextsBucket():
     gc[FOLDERS]  = projects
     global global_contexts
     global_contexts = gc
-
 
 @app.route("/proceed", methods=["POST"])
 def proceed(target_method="regenerate"):
