@@ -13,44 +13,55 @@
     <b style="float: right; text-align: right;">User: {{ user}}</b>
     <br>
     <form id="index_form" action="/" method="POST" enctype="multipart/form-data">
-        <div class="form-load">
+        <div id="div_general_context" class="form-load">
             <br>
-            <label style="color: black; font-weight: bold;" for="prompt">Pedido ao contexto:</label>
+            <label for="prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
             <br>
-            <textarea name="prompt" id="prompt" rows="3" cols="70" class="txt-general-style"
-                style="width: 100%;"></textarea>
+            <textarea name="prompt" id="prompt" rows="3" cols="70" class="txt-general-style"></textarea>
             <br><br>
-            {% if projects|length > 0 %}
-            <label for="projects_slc">Projeto:</label>
-            <select name="projects_slc" id="projects_slc">
-                {% for project in projects %}
-                <option value="{{ project }}">{{ project }}</option>
-                {% endfor %}
-            </select>&nbsp;&nbsp;&nbsp;
-            {% else %}
-            <p id="load_message" style="font-weight: bold;">
-                Nenhum projeto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.</p>
-            {% endif %}
-            {% if contexts|length > 0 %}
-            <label for="contexts_slc">Contexto:</label>
-            <select name="contexts_slc" id="contexts_slc">
-                {% for context in contexts %}
-                <option value="{{ context }}">{{ context }}</option>
-                {% endfor %}
-            </select>&nbsp;&nbsp;&nbsp;
-            {% else %}
-            {% if projects|length > 0 %}
-            <p id="load_message" style="font-weight: bold;">
-            Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.</p>
-            {% endif %}
-            {% endif %}
+            <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context"
+                checked>
+            <label for="chk_include_context" style="color: black; font-weight: bold;">Incluir contexto</label>
+            <br>
+            <div id="div_projects" class="form-box">
+                {% if projects|length > 0 %}
+                <label for="projects_slc">Projeto:</label>
+                <select name="projects_slc" id="projects_slc">
+                    {% for project in projects %}
+                    <option value="{{ project }}">{{ project }}</option>
+                    {% endfor %}
+                </select>&nbsp;&nbsp;&nbsp;
+                {% else %}
+                <p id="load_message" style="font-weight: bold;">
+                    Nenhum projeto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.
+                </p>
+                {% endif %}
+                {% if contexts|length > 0 %}
+                <label for="contexts_slc">Contexto:</label>
+                <select name="contexts_slc" id="contexts_slc">
+                    {% for context in contexts %}
+                    <option value="{{ context }}">{{ context }}</option>
+                    {% endfor %}
+                </select>&nbsp;&nbsp;&nbsp;
+                {% else %}
+                {% if projects|length > 0 %}
+                <p id="load_message" style="font-weight: bold;">
+                    Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.
+                </p>
+                {% endif %}
+                <br>
+                {% endif %}
+                <button type="submit" name="manage_contexts_btn" class="btn-build-style">Gerenciar contextos
+                </button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="update_contexts_btn" class="btn-build-style">Atualizar contextos
+                </button>
+            </div>
             <br><br>
-            <button type="submit" name="manage_contexts_btn" class="btn-build-style">Gerenciar contextos</button>&nbsp;&nbsp;&nbsp;
-            <button type="submit" name="update_contexts_btn" class="btn-build-style">Atualizar contextos</button><br><br>
-            <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar passo</button>&nbsp;&nbsp;&nbsp;
-            <input type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
+            <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar
+                passo</button>&nbsp;&nbsp;&nbsp;
+            <button type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
                 style="display: none;">
-            <br>
+                <br>
         </div>
         <br><br>
         &nbsp;&nbsp;
@@ -64,7 +75,7 @@
             <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
             <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
         </select>&nbsp;&nbsp;&nbsp;
-        <button type="submit" name="generate" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
+        <button type="submit" name="regenerate_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
         <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
         <button type="submit" name="save" class="btn-general-style">Salvar</button>
         {% endif %}
@@ -76,7 +87,7 @@
     </form>
     {% if loaded_prompts|length > 0 %}
     <h2>Pedidos e contextos carregados</h2>
-    <div class="form-list">
+    <div id="div_context_steps" class="form-list">
         <table>
             <thead>
                 <tr>
@@ -84,7 +95,7 @@
                     <th>Pedido</th>
                     <th>Projeto</th>
                     <th>Contexto</th>
-                    
+
                 </tr>
             </thead>
             <tbody>
@@ -105,10 +116,19 @@
         const form = document.querySelector("form");
         const clicked_button = document.getElementById("clicked_button");
         const choosen_project = document.getElementById("choosen_project")
-        
+
         // projects_slc doesn't exist if there are no projects
+        const chk_include_context = document.getElementById("chk_include_context")
+        chk_include_context.addEventListener("change", function () {
+            console.log("chk_include_context");
+            if (chk_include_context.checked)
+                document.getElementById("div_projects").style.display = "block";
+            else
+                document.getElementById("div_projects").style.display = "none";
+        });
+
         const projects_slc = document.getElementById("projects_slc");
-        if (projects_slc != null){
+        if (projects_slc != null) {
             projects_slc.value = choosen_project.value;
             projects_slc.addEventListener("change", function () {
                 console.log("projects_slc");

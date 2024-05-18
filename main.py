@@ -105,6 +105,8 @@ def index():
         # Get uploaded file
         project_name = request.form.get("projects_slc","")
         context_filename = request.form.get("contexts_slc","")
+        if context_filename == "":
+            project_name = ""
         if prompt == "":
             return renderIndex(any_error="show_error_is_empty")
         if isPromptRepeated(prompt, project_name, context_filename):
@@ -113,8 +115,6 @@ def index():
         saveLoadedPrompts(loaded_prompts)
     elif clicked_button == "update_contexts_btn": 
         return proceed("loadContextsBucket")
-    #elif clicked_button == "ctx_return_btn": 
-    #    return proceed("loadContextsBucket")
     elif clicked_button == "loadContextsBucket":
         loadContextsBucket()
         return renderIndex()
@@ -134,7 +134,7 @@ def index():
         return renderIndex("context.html")
     elif clicked_button == "projects_slc":
         return renderIndex()
-    elif clicked_button == "generate":
+    elif clicked_button == "regenerate_btn":
         return proceed("regenerate")
     elif clicked_button == "regenerate":
         return generate()
@@ -146,6 +146,9 @@ def index():
         return save_prompts()
     elif clicked_button == "load_prompts_btn":
         load_prompts(request.form["prompt_history_json"])
+    # generate.html buttons
+    elif clicked_button == "save_result_btn":
+        return save_results()
     return renderIndex()
 
 def renderIndex(page="index.html", any_error=""):
@@ -246,7 +249,6 @@ def loadContextsBucket():
     global global_contexts
     global_contexts = gc
 
-@app.route("/proceed", methods=["POST"])
 def proceed(target_method="regenerate"):
     print("METHOD: proceed" + " target_method: " + target_method)
     if target_method == "regenerate":
@@ -254,7 +256,6 @@ def proceed(target_method="regenerate"):
             return renderIndex(any_error="show_error_no_prompts")
     return render_template("proceed.html", target_method=target_method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME)
 
-#@app.route("/regenerate", methods=["POST"])
 def generate():
     print("METHOD: regenerate")
     model_name = request.form["model_name"]
@@ -302,11 +303,8 @@ def prepare_prompt(promptItem):
     print("METHOD: prepare_prompt")
     prompt, project_name, filename = promptItem
     print("prompt: ", prompt, " - project: ", project_name, " - filename: ", filename)
-    #if filename != "":
-        #if not "{contexto}" in prompt:
-            #return prompt + f" \"{filename}\""
-        #else: 
-            #return (prompt.replace("{contexto}", f" \"{filename}\""))
+    if filename == "":
+        return prompt
     uri=getGsUri(project_name, filename)
     file_type = getFileType(filename)
     #print("file_type: ", file_type)
@@ -323,7 +321,6 @@ def getFileType(filename):
         return "application/pdf"
     return "text/plain"
 
-#@app.route("/reset", methods=["POST"])
 def reset():
     print("METHOD: reset")
     saveLoadedPrompts([])
@@ -354,7 +351,6 @@ def save_prompts():
     #return send_file(prompts_json_path, as_attachment=True, download_name="prompts_file.json")
     return send_file(prompts_json_path, as_attachment=True, download_name=prompts_filename)
 
-@app.route("/save", methods=["POST"])
 def save_results():
     print("METHOD: save_results")
     results_filename = request.form["results_filename"] + ".txt"

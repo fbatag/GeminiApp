@@ -2,8 +2,11 @@ gcloud config set project <projecto a ser usado> #- rodar se "gcloud config get 
 export PROJECT_ID=$(gcloud config get project)
 export REGION=<REGION> # deve ser uma região que onde o Gemini esteja deploiado - us-central1 southamerica-east1 us-east1 us-east4
 export SUPPORT_EMAIL=<mail do user executando estes comandos>
-export USER_EMAIL=<user do dominio - que tem acesso ao console GCP>
+export USER_EMAIL=<user ou grupo do dominio - que usará a aplicação>
 export USER_EMAIL_DEPLOY=<usesr que continuará fazendo deploy de novas versões>
+
+gsutil mb gs://gen-ai-app-contexts-$PROJECT_ID
+gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
 
 gcloud iam service-accounts create gemini-app-sa \
 --display-name "Gemini App Generator Service Account" \
@@ -31,6 +34,8 @@ gcloud services enable vision.googleapis.com
 gcloud app create --project=$PROJECT_ID --region=$REGION --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
 gcloud app deploy --project=$PROJECT_ID --quiet
+gcloud app firewall-rules update default --action DENY
+gcloud app firewall-rules create 100 --action ALLOW --source-range <CIDR> --description "Limitando ao acesso da rede corporativa"
 
 gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SUPPORT_EMAIL
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp

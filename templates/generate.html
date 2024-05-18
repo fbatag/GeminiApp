@@ -10,27 +10,27 @@
     <h1>Modelo: {{ model_name }}</h1>
     {% for stepResponse in geminiResponse %}
     <h3>Passo {{ loop.index }}</h3>
-    <div class="form-list"  style="white-space: pre-wrap;">
+    <div class="form-list" style="white-space: pre-wrap;">
         {{ stepResponse }}
     </div>
     <br>
     {% endfor %}
-    <form action="/save" method="POST" style="display: inline-block;">
-        <input type="hidden" name="geminiResponse"
-            value="{{ flatResponse }}">
-        <input type="hidden" name="results_filename">
-        <input class="btn-general-style" type="submit" name="save" value="Salvar">
-    </form>&nbsp;&nbsp;&nbsp;
-    <form action="/proceed" method="POST" style="display: inline-block;">
-        <input type="hidden" name="model_name" value="{{ model_name }}">
-        <button class="btn-general-style" type="submit" name="proceed">Re-Gerar</button>
-    </form>&nbsp;&nbsp;&nbsp;
+    <br>
     <form action="/" method="POST" style="display: inline-block;">
+        <!--h2>Acrescentar pedido</h2>
+        <textarea name="prompt" id="prompt" rows="3" cols="70" class="txt-general-style"
+        style="width: 100%;"></textarea>
+        <button class="btn-general-style" type="submit" name="fw-qustion-btn">Pedir</button>&nbsp;&nbsp;&nbsp; -->
+        <button class="btn-general-style" type="submit" name="regenerate_btn">Re-Gerar</button>&nbsp;&nbsp;&nbsp;
+        <button class="btn-general-style" type="submit" name="save_result_btn">Salvar</button>&nbsp;&nbsp;&nbsp;
+        <button class="btn-general-style" type="submit" name="return_btn">Retornar</button>
+        <input type="hidden" name="geminiResponse" value="{{ flatResponse }}">
+        <input type="hidden" id="results_filename" name="results_filename">
         <input type="hidden" name="model_name" value="{{ model_name }}">
-        <button class="btn-general-style" type="submit" name="return">Retornar</button>
+        <input type="hidden" id="clicked_button" name="clicked_button" value="">
     </form>
     <h3>Dados de uso dessa requisição (# de tokens):</h3>
-    <div class="form-list">
+    <div id="div_statistcs" class="form-list">
         <table>
             <thead>
                 <tr>
@@ -52,35 +52,51 @@
             </tbody>
             <tfoot>
                 <tr>
-                    
+
                     <th colspan="1">GERAL:</th>
                     <td style="text-align: center; font-weight: bold;">{{ total_token_consumption[0] }}</td>
                     <td style="text-align: center; font-weight: bold;">{{ total_token_consumption[1] }}</td>
-                    <td style="text-align: center; font-weight: bold; text-decoration: underline;">{{ total_token_consumption[2] }}</td>
+                    <td style="text-align: center; font-weight: bold; text-decoration: underline;">{{
+                        total_token_consumption[2] }}</td>
                 </tr>
             </tfoot>
         </table>
-        <a style="font-size: 9px;">Note que o total de tokens é o mesmo listado no último passo, pois o número de tokens de entrada do passo seguinte
+        <a style="font-size: 9px;">Note que o total de tokens é o mesmo listado no último passo, pois o número de tokens
+            de entrada do passo seguinte
             é a soma do prompot de entrada desse passo mais o total do passo anterior.</a>
         <br><br>
-        <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing#google_foundational_models" target="_blank">Para valores consulte aqui</a>
-</div>
+        <a href="https://cloud.google.com/vertex-ai/generative-ai/pricing#google_foundational_models"
+            target="_blank">Para valores consulte aqui</a>
+    </div>
     <!--h3>Avaliação de segurança de termos:</h3>
     <div class="form-list">
         <pre> geminiResponse["candidates"][0]["safety_ratings"] </pre>
     </div-->
     <script>
-        // Simula o popup para obter o caminho do arquivo
+        const clicked_button = document.getElementById("clicked_button");
+
         document.querySelector("form").addEventListener("submit", function (event) {
             event.preventDefault();
-            if (event.submitter.name == "save") {
-                const filename = prompt("Digite o caminho do arquivo de resultdos:");
+            clicked_button.value = event.submitter.name;
+            if (event.submitter.name == "save_result_btn") {
+                filename = prompt("Digite o caminho do arquivo de resultdos:");
                 if (!filename) return;
-                if (filename.trim() == "") {
+                filename = filename.trim();
+                if (filename == "") {
                     alert("Entre um nome de arquivo válido!");
                     return;
                 }
-                document.querySelector("input[name=results_filename]").value = filename.trim();
+                document.getElementById("results_filename").value = filename;
+            }
+            else if (event.submitter.name == "fw-qustion-btn") {
+                prompt = document.getElementById("prompt").value.trim();
+                if (prompt == "") {
+                    alert("Entre um pedido !");
+                    return;
+                }
+                // implementar ainda -- por hora, faz nada
+                alert("Me desculpe, essa funcionaldiade ainda está emd esenvolvimento!");
+
             }
             this.submit();
         });

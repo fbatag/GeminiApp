@@ -21,6 +21,12 @@ body {
     background-color: #fff;
   }
   
+  .form-box {
+    border: 2px solid lightgrey;
+    padding: 10px;
+    background-color: lightgray;
+  }
+
   .form-list {
     border: 2px solid gray;
     padding: 10px;
@@ -144,6 +150,12 @@ select:focus {
 }
 
 .txt-general-style {
+  border: none;
+  background-color: lightgrey;
+  width: 100%;
+ }
+
+.txt-proportional-style {
   border: none;
   background-color: #f1f1f1;
   width: calc(100% - 215px);
