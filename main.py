@@ -63,7 +63,7 @@ FOLDERS =  "!<FOLDERS>!"
 def get_iap_user():
     return request.headers.get('X-Goog-Authenticated-User-Email', "None")
 
-def loadedPrompts():
+def getLoadedPrompts():
     user = get_iap_user()
     if user not in global_loaded_prompts:
         loadedPrompts = []
@@ -79,6 +79,7 @@ def loadedPrompts():
     return global_loaded_prompts[user]
 
 def saveLoadedPrompts(loadedPrompts):
+    print("METHOD: saveLoadedPrompts")
     user = get_iap_user()
     if IS_GAE_ENV_STD:
         memcache.set(user, json.dumps(loadedPrompts))
@@ -86,7 +87,7 @@ def saveLoadedPrompts(loadedPrompts):
     global_loaded_prompts[user] = loadedPrompts
 
 def isPromptRepeated(prompt, project_name, filename):
-    loaded_prompts = loadedPrompts()
+    loaded_prompts = getLoadedPrompts()
     if len(loaded_prompts) > 0:
         #last_loaded_prompt, last_loaded_filename = loaded_prompts[len(loaded_prompts)-1]
         last_loaded_prompt, last_project, last_loaded_filename = loaded_prompts[-1]
@@ -96,28 +97,31 @@ def isPromptRepeated(prompt, project_name, filename):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    loaded_prompts = loadedPrompts()
+    loaded_prompts = getLoadedPrompts()
     print("METHOD: index -> " + request.method + " prompts size: " + str(len(loaded_prompts)))
     clicked_button = request.form.get('clicked_button', "NOT_FOUND")
     print("clicked_button: ", clicked_button)
-    if clicked_button == "load_context_step_btn":
-        prompt = request.form.get("prompt", "").strip()
-        # Get uploaded file
-        project_name = request.form.get("projects_slc","")
+    if clicked_button == "load_context_step_btn_nofile" or clicked_button == "load_context_step_btn":
+        prompt = request.form.get("txt_prompt", "").strip()
         context_filename = request.form.get("contexts_slc","")
-        if context_filename == "":
-            project_name = ""
+        if context_filename == "" or clicked_button == "load_context_step_btn_nofile":
+            context_filename =""
+            project_name =""
+        else:
+            project_name = request.form.get("projects_slc","")
         if prompt == "":
             return renderIndex(any_error="show_error_is_empty")
         if isPromptRepeated(prompt, project_name, context_filename):
             return renderIndex(any_error="show_error_repeated")
         loaded_prompts.append((prompt, project_name, context_filename))
         saveLoadedPrompts(loaded_prompts)
+        return renderIndex(keep_prompt=False)
+    elif clicked_button == "delete_step_btn": 
+        delete_prompt_step(request.form["step_to_delete"])
     elif clicked_button == "update_contexts_btn": 
         return proceed("loadContextsBucket")
     elif clicked_button == "loadContextsBucket":
         loadContextsBucket()
-        return renderIndex()
     elif clicked_button == "manage_contexts_btn":
         return renderIndex("context.html")
     elif clicked_button == "upload_context_btn":
@@ -132,8 +136,8 @@ def index():
         create_project(request.form["new_prj_name"])
         loadContextsBucket()
         return renderIndex("context.html")
-    elif clicked_button == "projects_slc":
-        return renderIndex()
+    #elif clicked_button == "projects_slc":
+    #    return renderIndex()
     elif clicked_button == "regenerate_btn":
         return proceed("regenerate")
     elif clicked_button == "regenerate":
@@ -145,27 +149,30 @@ def index():
     elif clicked_button == "save":
         return save_prompts()
     elif clicked_button == "load_prompts_btn":
-        load_prompts(request.form["prompt_history_json"])
+        return load_prompts(request.form["prompt_history_json"])
     # generate.html buttons
     elif clicked_button == "save_result_btn":
         return save_results()
     return renderIndex()
 
-def renderIndex(page="index.html", any_error=""):
-    print("METHOD: renderIndex -> " + any_error)
+def renderIndex(page="index.html", any_error="", keep_prompt=True):
+    print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
     global global_contexts
     gc = global_contexts
     if not FOLDERS in gc:
         return proceed("loadContextsBucket")
     project = request.form.get("projects_slc", "")
     choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-preview-0514")
+    txt_prompt = ""
+    if keep_prompt:
+        txt_prompt = request.form.get("txt_prompt", "")
     if project == "" and len(gc[FOLDERS]) > 0:
         project = gc[FOLDERS][0]
     if project == "" or len(gc[FOLDERS]) == 0:
         #print("EMPTY ** choosen_model_name="+ choosen_model_name +" project=" + project + " projects=[] contexts=[]")
-        return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=[], contexts=[], any_error=any_error)
+        return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=[], contexts=[], txt_prompt=txt_prompt, any_error=any_error)
     #print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
-    return render_template(page, user=get_iap_user(), loaded_prompts=loadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=gc[FOLDERS], contexts=gc[project], any_error=any_error)
+    return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=gc[FOLDERS], contexts=gc[project], txt_prompt=txt_prompt, any_error=any_error)
 
 def getBucket():
     storage_client = storage.Client()
@@ -252,9 +259,9 @@ def loadContextsBucket():
 def proceed(target_method="regenerate"):
     print("METHOD: proceed" + " target_method: " + target_method)
     if target_method == "regenerate":
-        if len(loadedPrompts()) == 0:
+        if len(getLoadedPrompts()) == 0:
             return renderIndex(any_error="show_error_no_prompts")
-    return render_template("proceed.html", target_method=target_method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME)
+    return render_template("proceed.html", target_method=target_method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME, txt_prompt = request.form.get("txt_prompt", ""))
 
 def generate():
     print("METHOD: regenerate")
@@ -265,7 +272,7 @@ def generate():
     
     token_consumption = []
     #total_token_consumption = [0,0,0]
-    loaded_prompts = loadedPrompts()
+    loaded_prompts = getLoadedPrompts()
     geminiResponse = []
     flatResponse = ""
     index = 1
@@ -330,18 +337,23 @@ def reset():
 def view():
     print("METHOD: view")
     prompts = []
-    for promptItem in loadedPrompts():
+    for promptItem in getLoadedPrompts():
         prompts.append(prepare_prompt(promptItem))
     return render_template("view_prompts.html", prompts=prompts)
 
 def load_prompts(prompts_json):
     print("METHOD: load_prompts")
     print("Loaded prompt size:" + str(len(prompts_json)))
-    saveLoadedPrompts(json.loads(prompts_json))
+    try:
+        saveLoadedPrompts(json.loads(prompts_json))
+        return renderIndex()
+    except Exception as e:
+        saveLoadedPrompts([])
+        return renderIndex(any_error="show_error_json_parser")
 
 def save_prompts():
     print("METHOD: save_prompts")
-    loaded_prompts = loadedPrompts()
+    loaded_prompts = getLoadedPrompts()
     prompts_filename = request.form["prompts_filename"] + ".json"
     # Converte a lista "loaded_prompts" para um objeto JSON
     json_data = json.dumps(loaded_prompts)
@@ -350,6 +362,15 @@ def save_prompts():
         f.write(json_data)
     #return send_file(prompts_json_path, as_attachment=True, download_name="prompts_file.json")
     return send_file(prompts_json_path, as_attachment=True, download_name=prompts_filename)
+
+def delete_prompt_step(step_num_str):
+    print("METHOD: delete_prompt_step")
+    loaded_prompts = getLoadedPrompts()
+    step_num = int(step_num_str)
+    if step_num <= len(loaded_prompts):
+        print(loaded_prompts[step_num-1])
+        loaded_prompts.remove(loaded_prompts[step_num-1])
+        saveLoadedPrompts(loaded_prompts)
 
 def save_results():
     print("METHOD: save_results")

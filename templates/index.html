@@ -15,9 +15,9 @@
     <form id="index_form" action="/" method="POST" enctype="multipart/form-data">
         <div id="div_general_context" class="form-load">
             <br>
-            <label for="prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
+            <label for="txt_prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
             <br>
-            <textarea name="prompt" id="prompt" rows="3" cols="70" class="txt-general-style"></textarea>
+            <textarea name="txt_prompt" id="txt_prompt" rows="3" cols="70" class="txt-general-style">{{ txt_prompt }}</textarea>
             <br><br>
             <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context"
                 checked>
@@ -45,12 +45,12 @@
                 </select>&nbsp;&nbsp;&nbsp;
                 {% else %}
                 {% if projects|length > 0 %}
-                <p id="load_message" style="font-weight: bold;">
+                <label id="load_message" style="font-weight: bold;">
                     Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.
-                </p>
+                </label>
                 {% endif %}
-                <br>
                 {% endif %}
+                <br><br>
                 <button type="submit" name="manage_contexts_btn" class="btn-build-style">Gerenciar contextos
                 </button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_contexts_btn" class="btn-build-style">Atualizar contextos
@@ -79,23 +79,24 @@
         <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
         <button type="submit" name="save" class="btn-general-style">Salvar</button>
         {% endif %}
+        <input type="file" id="load_prompts_file" accept=".json" style="display: none;"></input>
         <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
         <input type="hidden" id="prompt_history_json" name="prompt_history_json"></input>
         <input type="hidden" id="prompts_filename" name="prompts_filename"></input>
-        <input type="file" id="load_prompts_file" accept=".json" style="display: none;"></input>
         <input type="hidden" id="clicked_button" name="clicked_button" value="">
+        <input type="hidden" id="step_to_delete" name="step_to_delete" value="">
     </form>
     {% if loaded_prompts|length > 0 %}
     <h2>Pedidos e contextos carregados</h2>
     <div id="div_context_steps" class="form-list">
-        <table>
+        <table id="step_lst">
             <thead>
                 <tr>
                     <th>Passo</th>
                     <th>Pedido</th>
                     <th>Projeto</th>
                     <th>Contexto</th>
-
+                    <th>Remover</th>
                 </tr>
             </thead>
             <tbody>
@@ -105,6 +106,9 @@
                     <td>&nbsp;&nbsp;&nbsp;{{ prompt[:50] }}&nbsp;&nbsp;&nbsp;</td>
                     <td>&nbsp;&nbsp;&nbsp;{{ project_name }}&nbsp;&nbsp;&nbsp;</td>
                     <td>&nbsp;&nbsp;&nbsp;{{ filename }}&nbsp;&nbsp;&nbsp;</td>
+                    <td style="text-align: center; height: 16px; width: 16px">
+                        <img class="delete-icon" src="static/trash-bin.png" style="width: 20px; height: 20px; object-fit: cover;" value="{{ loop.index }}">
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -144,7 +148,21 @@
             clicked_button.value = "contexts_slc";
             form.submit();           
         });*/
-
+        const step_lst = document.getElementById("step_lst");
+        if (step_lst != null) {
+            step_lst.addEventListener("click", function (event) {
+                console.log(event.target);
+                if (event.target.classList.contains("delete-icon")) {
+                    const step_num = event.target.getAttribute("value");
+                    console.log(step_num);
+                    response = confirm("Tem certeza que deseja deletar o passo \"" + step_num + "\"?");
+                    if (!response) return;
+                    clicked_button.value = "delete_step_btn";
+                    document.getElementById("step_to_delete").value = step_num;
+                    form.submit();
+                }
+            });
+        }
 
         var choosenModel = document.getElementById("choosen_model_name");
         if (choosenModel != null && choosenModel.value != "") {
@@ -179,9 +197,13 @@
             clicked_button.value = event.submitter.name;
             console.log("CLICKED BTN: " + clicked_button.value);
             if (clicked_button.value == "load_context_step_btn") {
-                if (document.getElementById("prompt").value.trim() == "") {
+                if (document.getElementById("txt_prompt").value.trim() == "") {
                     alert("Forneça um pedido ao contexto!");
                     return;
+                }
+                if (!chk_include_context.checked)
+                {
+                    clicked_button.value = "load_context_step_btn_nofile"
                 }
             }
             else if (clicked_button.value == "load_prompts_btn") {
@@ -276,6 +298,12 @@
 {% if any_error == "show_error_no_gcs_file" %}
 <script>
     alert("Nenhuma midia encontrada nos buckets gcs!");
+</script>
+{% endif %}
+
+{% if any_error == "show_error_json_parser" %}
+<script>
+    alert("Error ao parsear o json. Confirme o formato!");
 </script>
 {% endif %}
 
