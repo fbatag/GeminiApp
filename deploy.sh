@@ -5,7 +5,14 @@ export SUPPORT_EMAIL=<mail do user executando estes comandos>
 export USER_EMAIL=<user ou grupo do dominio - que usará a aplicação>
 export USER_EMAIL_DEPLOY=<usesr que continuará fazendo deploy de novas versões>
 
-gsutil mb gs://gen-ai-app-contexts-$PROJECT_ID
+gcloud services enable storage-component.googleapis.com
+gcloud services enable aiplatform.googleapis.com
+gcloud services enable appengine.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
+gcloud services enable iap.googleapis.com 
+gcloud services enable vision.googleapis.com
+
+gsutil mb -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
 
 gcloud iam service-accounts create gemini-app-sa \
@@ -14,22 +21,15 @@ gcloud iam service-accounts create gemini-app-sa \
 
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
---role roles/storage.admin
-
-gcloud projects add-iam-policy-binding $PROJECT_ID \
---member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role roles/aiplatform.user
 
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
---role roles/serviceusage.serviceUsageConsumer
+--role roles/storage.admin
 
-gcloud services enable storage-component.googleapis.com
-gcloud services enable aiplatform.googleapis.com
-gcloud services enable appengine.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-gcloud services enable iap.googleapis.com 
-gcloud services enable vision.googleapis.com
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role roles/serviceusage.serviceUsageConsumer
 
 gcloud app create --project=$PROJECT_ID --region=$REGION --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
