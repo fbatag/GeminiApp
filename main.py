@@ -28,8 +28,11 @@ if IS_GAE_ENV_STD:
 
 storage_client = storage.Client()
 CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
-print("CONTEXTS_BUCKET_NAME: " + CONTEXTS_BUCKET_NAME)
-
+UNIT_TESTS_BUCKET_NAME = os.environ.get("UNIT_TESTS_BUCKET_NAME", "gen-ai-app-unit-tests-") + storage_client.project
+print(CONTEXTS_BUCKET_NAME)
+print(UNIT_TESTS_BUCKET_NAME)
+contextsBucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
+unitTestBucket  = storage_client.bucket(UNIT_TESTS_BUCKET_NAME, storage_client.project)
 vertexai.init()
 
 generation_config = {
@@ -45,19 +48,21 @@ safety_settings = {
     generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
 }
 
-# ATENÇÃO: Apesar de existirem esses valores no Enum, o modelo NÃO aceita esses parãmetros
-#safety_settings = {
-#    HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
-#    generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_NONE,
-#    generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
-#    generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_NONE,
-#    generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
+# ATENÇÃO: Os parãmetros abaixo somente funcionam com prompt texto. Se um arquivo é incluido, dai erro "400 Request contains an invalid argument." 
+#safety_settings_none = {
+ #   #generative_models.HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
+ #   generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_NONE,
+ #   generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
+ #   generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_NONE,
+ #   generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
 #}
 
 # Inicializa o array para armazenar os dados
 global_loaded_prompts = dict()
 global_contexts = dict()
 FOLDERS =  "!<FOLDERS>!"
+global_unit_tests = []
+
 
 
 def get_iap_user():
@@ -153,12 +158,19 @@ def index():
     # generate.html buttons
     elif clicked_button == "save_result_btn":
         return save_results()
+    elif clicked_button == "update_unit_tests_btn":
+        return proceed("update_unit_tests_btn")
+    elif clicked_button == "loadTestUnitBucketFolders":
+        loadTestUnitBucketFolders()
+        return renderIndex(activeTab="tabUnitTestGeneration")
     return renderIndex()
 
-def renderIndex(page="index.html", any_error="", keep_prompt=True):
+def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="tabContextGeneration"):
     print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
     global global_contexts
     gc = global_contexts
+    #activeTab = request.form.get("activeTab", "tabContextGeneration")
+    #print("activeTab: ", activeTab)
     if not FOLDERS in gc:
         return proceed("loadContextsBucket")
     project = request.form.get("projects_slc", "")
@@ -170,34 +182,29 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True):
         project = gc[FOLDERS][0]
     if project == "" or len(gc[FOLDERS]) == 0:
         #print("EMPTY ** choosen_model_name="+ choosen_model_name +" project=" + project + " projects=[] contexts=[]")
-        return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=[], contexts=[], txt_prompt=txt_prompt, any_error=any_error)
+        return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, 
+                               project=project, projects=[], contexts=[], txt_prompt=txt_prompt, 
+                               projects_tests=global_unit_tests,
+                               activeTab=activeTab,
+                               any_error=any_error)
     #print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
-    return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, project=project, projects=gc[FOLDERS], contexts=gc[project], txt_prompt=txt_prompt, any_error=any_error)
-
-def getBucket():
-    storage_client = storage.Client()
-    # Cria um bucket se ele não existir
-    bucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
-    if not bucket.exists():
-        print("O bucket '" + CONTEXTS_BUCKET_NAME + "' não existe no projeto '" + storage_client.project + "'. Criando ..")
-        bucket.iam_configuration.uniform_bucket_level_access_enabled = True
-        #bucket.create(location=REGION)
-        bucket.create()
-        print("Bucket {} created".format(CONTEXTS_BUCKET_NAME))
-    return bucket        
+    return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, 
+                           project=project, projects=gc[FOLDERS], contexts=gc[project], txt_prompt=txt_prompt, 
+                           projects_tests=global_unit_tests,
+                           activeTab=activeTab,
+                           any_error=any_error)
+    
 
 def create_project(new_prj_name):
     print("METHOD: create_project", new_prj_name)
-    bucket = getBucket()
-    blob = bucket.blob(new_prj_name + "/")
+    blob = contextsBucket.blob(new_prj_name + "/")
     blob.upload_from_string("")
     
 def uploadContext(project, file):
     print("METHOD: uploadContext")
     if file:
-        bucket = getBucket()
         # Faz o upload do arquivo para o bucket
-        blob = bucket.blob(project + "/" + file.filename)
+        blob = contextsBucket.blob(project + "/" + file.filename)
         blob.upload_from_file(file, content_type=file.content_type)
         #try:
         #    convertToText(project, file)
@@ -206,8 +213,7 @@ def uploadContext(project, file):
 
 def deleteContext(folder, filename):
     print("METHOD: deleteContext")
-    bucket = getBucket()
-    blob = bucket.blob(folder + "/" + filename)    
+    blob = contextsBucket.blob(folder + "/" + filename)    
     print("Deleting" + folder + "/"   + filename)
     try:
         blob.delete()
@@ -220,7 +226,6 @@ def convertToText(folder, file):
     print("METHOD: convertToText", folder, file.filename)
     src_uri = uri=getGsUri(folder, file.filename)
     dst_uri = uri=getGsUri(folder, file.filename.replace(".pdf", ".txt"))
-    storage_client = storage.Client()
     client = vision.ImageAnnotatorClient()
     feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
     gcs_source = vision.GcsSource(uri=src_uri)
@@ -234,9 +239,8 @@ def convertToText(folder, file):
     operation.result(timeout=420)
 
 def loadContextsBucket():
-    print("METHOD: loadContextsBucket")
-    bucket = getBucket()
-    blobs = bucket.list_blobs()
+    print("METHOD: loadContextsBucket")    
+    blobs = contextsBucket.list_blobs()
     gc = dict()
     projects = []
     for blob in blobs:
@@ -255,6 +259,25 @@ def loadContextsBucket():
     gc[FOLDERS]  = projects
     global global_contexts
     global_contexts = gc
+
+def loadTestUnitBucketFolders():
+    print("METHOD: loadTestUnitBucketFolders")
+    if not unitTestBucket.exists:
+        raise Exception("This is a generic exception")
+    blobs = unitTestBucket.list_blobs(prefix="", delimiter="/")
+    blobs = unitTestBucket.list_blobs()
+    projects = []
+    for blob in blobs:
+        print (blob.name)
+        if blob.name.endswith("/"):
+            #folder = blob.name.strip('/')
+            parts = blob.name.split('/')
+            if len(parts) == 1:
+                # Extract folder name by splitting on '/' and taking everything but the last part
+                projects.append(parts[0])
+    global global_unit_tests
+    global_unit_tests = projects   
+    
 
 def proceed(target_method="regenerate"):
     print("METHOD: proceed" + " target_method: " + target_method)

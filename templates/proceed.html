@@ -28,6 +28,16 @@
         </form>
     {% endif %}
  
+    {% if target_method == "update_unit_tests_btn" %}
+        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS.    AGUARDE ....</p>
+        <form action="/" method="POST" style="display: inline-block;">
+            <input type="hidden" name="model_name" value="{{ model_name }}">
+            <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
+            <input type="hidden" id="clicked_button" name="clicked_button" value="loadTestUnitBucketFolders" >
+        </form>
+    {% endif %}
+
+    
 </body>
 
 <script>

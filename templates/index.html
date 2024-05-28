@@ -9,112 +9,150 @@
 </head>
 
 <body>
-    <h1 style="display: inline-block;">Gerador de conteúdo para modelos de linguagem</h1>
-    <b style="float: right; text-align: right;">User: {{ user}}</b>
-    <br>
     <form id="index_form" action="/" method="POST" enctype="multipart/form-data">
-        <div id="div_general_context" class="form-load">
+        <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
+
+        <div class="tabs">
+            <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
+            <div class="tab" id="tabUnitTestGeneration" data-tab="divUnitTestGeneration">Gerador de teste unitário</div>
+        </div>
+
+        <div class="content" id="divContextGeneration">
+            <h2 style="display: inline-block;">Gerador de conteúdo</h2>
+            <b style="float: right; text-align: right;">User: {{ user}}</b>
             <br>
-            <label for="txt_prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
-            <br>
-            <textarea name="txt_prompt" id="txt_prompt" rows="3" cols="70" class="txt-general-style">{{ txt_prompt }}</textarea>
-            <br><br>
-            <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context"
-                checked>
-            <label for="chk_include_context" style="color: black; font-weight: bold;">Incluir contexto</label>
-            <br>
-            <div id="div_projects" class="form-box">
-                {% if projects|length > 0 %}
-                <label for="projects_slc">Projeto:</label>
-                <select name="projects_slc" id="projects_slc">
-                    {% for project in projects %}
-                    <option value="{{ project }}">{{ project }}</option>
-                    {% endfor %}
-                </select>&nbsp;&nbsp;&nbsp;
-                {% else %}
-                <p id="load_message" style="font-weight: bold;">
-                    Nenhum projeto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.
-                </p>
-                {% endif %}
-                {% if contexts|length > 0 %}
-                <label for="contexts_slc">Contexto:</label>
-                <select name="contexts_slc" id="contexts_slc">
-                    {% for context in contexts %}
-                    <option value="{{ context }}">{{ context }}</option>
-                    {% endfor %}
-                </select>&nbsp;&nbsp;&nbsp;
-                {% else %}
-                {% if projects|length > 0 %}
-                <label id="load_message" style="font-weight: bold;">
-                    Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e contextos.
-                </label>
-                {% endif %}
-                {% endif %}
+            <div id="div_general_context" class="form-load">
+                <br>
+                <label for="txt_prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
+                <br>
+                <textarea name="txt_prompt" id="txt_prompt" rows="3" cols="70"
+                    class="txt-general-style">{{ txt_prompt }}</textarea>
                 <br><br>
-                <button type="submit" name="manage_contexts_btn" class="btn-build-style">Gerenciar contextos
-                </button>&nbsp;&nbsp;&nbsp;
-                <button type="submit" name="update_contexts_btn" class="btn-build-style">Atualizar contextos
-                </button>
+                <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context"
+                    checked>
+                <label for="chk_include_context" style="color: black; font-weight: bold;">Incluir contexto</label>
+                <br>
+                <div id="div_projects" class="form-box">
+                    {% if projects|length > 0 %}
+                    <label for="projects_slc">Projeto:</label>
+                    <select name="projects_slc" id="projects_slc">
+                        {% for project in projects %}
+                        <option value="{{ project }}">{{ project }}</option>
+                        {% endfor %}
+                    </select>&nbsp;&nbsp;&nbsp;
+                    {% else %}
+                    <p id="load_message" style="font-weight: bold;">
+                        Nenhum projeto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e
+                        contextos.
+                    </p>
+                    {% endif %}
+                    {% if contexts|length > 0 %}
+                    <label for="contexts_slc">Contexto:</label>
+                    <select name="contexts_slc" id="contexts_slc">
+                        {% for context in contexts %}
+                        <option value="{{ context }}">{{ context }}</option>
+                        {% endfor %}
+                    </select>&nbsp;&nbsp;&nbsp;
+                    {% else %}
+                    {% if projects|length > 0 %}
+                    <label id="load_message" style="font-weight: bold;">
+                        Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e
+                        contextos.
+                    </label>
+                    {% endif %}
+                    {% endif %}
+                    <br><br>
+                    <button type="submit" name="manage_contexts_btn" class="btn-build-style">Gerenciar contextos
+                    </button>&nbsp;&nbsp;&nbsp;
+                    <button type="submit" name="update_contexts_btn" class="btn-build-style">Atualizar contextos
+                    </button>
+                </div>
+                <br><br>
+                <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar
+                    passo</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
+                    style="display: none;">
+                    <br>
             </div>
             <br><br>
-            <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar
-                passo</button>&nbsp;&nbsp;&nbsp;
-            <button type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
-                style="display: none;">
-                <br>
+            &nbsp;&nbsp;
+            <button type="submit" name="load_prompts_btn" class="btn-load-style">Carregar
+                estória</button>&nbsp;&nbsp;&nbsp;
+            {% if loaded_prompts|length > 0 %}
+            <button type="submit" name="reset" class="btn-clear-style">Limpar</button>&nbsp;&nbsp;&nbsp;
+            <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>
+            <select name="model_name">
+                <option value="gemini-1.5-flash-001">Gemini-1.5-flash-001</option>
+                <option value="gemini-1.5-pro-001">Gemini-1.5-pro-001</option>
+                <option value="gemini-experimental">Gemini-experimental</option>
+                <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
+                <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
+            </select>&nbsp;&nbsp;&nbsp;
+            <button type="submit" name="regenerate_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
+            <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
+            <button type="submit" name="save" class="btn-general-style">Salvar</button>
+            {% endif %}
+            <input type="file" id="load_prompts_file" accept=".json" style="display: none;"></input>
+            <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
+            <input type="hidden" id="prompt_history_json" name="prompt_history_json"></input>
+            <input type="hidden" id="prompts_filename" name="prompts_filename"></input>
+            <input type="hidden" id="clicked_button" name="clicked_button" value="">
+            <input type="hidden" id="step_to_delete" name="step_to_delete" value="">
+            {% if loaded_prompts|length > 0 %}
+            <h2>Pedidos e contextos carregados</h2>
+            <div id="div_context_steps" class="form-list">
+                <table id="step_lst">
+                    <thead>
+                        <tr>
+                            <th>Passo</th>
+                            <th>Pedido</th>
+                            <th>Projeto</th>
+                            <th>Contexto</th>
+                            <th>Remover</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prompt, project_name, filename in loaded_prompts %}
+                        <tr>
+                            <td style="text-align: center;">{{ loop.index }}</td>
+                            <td>&nbsp;&nbsp;&nbsp;{{ prompt[:50] }}&nbsp;&nbsp;&nbsp;</td>
+                            <td>&nbsp;&nbsp;&nbsp;{{ project_name }}&nbsp;&nbsp;&nbsp;</td>
+                            <td>&nbsp;&nbsp;&nbsp;{{ filename }}&nbsp;&nbsp;&nbsp;</td>
+                            <td style="text-align: center; height: 16px; width: 16px">
+                                <img class="delete-icon" src="static/trash-bin.png"
+                                    style="width: 20px; height: 20px; object-fit: cover;" value="{{ loop.index }}">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
         </div>
-        <br><br>
-        &nbsp;&nbsp;
-        <button type="submit" name="load_prompts_btn" class="btn-load-style">Carregar estória</button>&nbsp;&nbsp;&nbsp;
-        {% if loaded_prompts|length > 0 %}
-        <button type="submit" name="reset" class="btn-clear-style">Limpar</button>&nbsp;&nbsp;&nbsp;
-        <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>
-        <select name="model_name">
-            <option value="gemini-1.5-flash-preview-0514">Gemini-1.5-flash-preview-0514</option>
-            <option value="gemini-1.5-pro-preview-0409">Gemini-1.5-pro-preview-0409</option>
-            <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
-            <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
-        </select>&nbsp;&nbsp;&nbsp;
-        <button type="submit" name="regenerate_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
-        <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
-        <button type="submit" name="save" class="btn-general-style">Salvar</button>
-        {% endif %}
-        <input type="file" id="load_prompts_file" accept=".json" style="display: none;"></input>
-        <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
-        <input type="hidden" id="prompt_history_json" name="prompt_history_json"></input>
-        <input type="hidden" id="prompts_filename" name="prompts_filename"></input>
-        <input type="hidden" id="clicked_button" name="clicked_button" value="">
-        <input type="hidden" id="step_to_delete" name="step_to_delete" value="">
+        <div class="content" id="divUnitTestGeneration">
+            <h2 style="display: inline-block;">Gerador de teste unitário em lote</h2>
+            <div id="div_test-unit" class="form-box">
+                {% if projects_tests|length > 0 %}
+                <label for="projects_tests_slc">Projeto:</label>
+                <select name="projects_tests_slc" id="projects_tests_slc">
+                    {% for project in projects_tests %}
+                    <option value="{{ project }}">{{ project }}</option>
+                    {% endfor %}
+                </select>
+                <br>
+                {% else %}
+                <p id="load_message_test_unit" style="font-weight: bold;">
+                    Nenhum projeto encontrado. Clique no botão "Atualizar projetos" e se não houver projetos,
+                    faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
+                </p>
+                {% endif %}
+                <br>
+                <button type="submit" name="generate_unit_tests_btn" class="btn-build-style">Gerar
+                    testes</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="update_unit_tests_btn" class="btn-build-style">Atualizar projetos</button>
+            </div>
+        </div>
     </form>
-    {% if loaded_prompts|length > 0 %}
-    <h2>Pedidos e contextos carregados</h2>
-    <div id="div_context_steps" class="form-list">
-        <table id="step_lst">
-            <thead>
-                <tr>
-                    <th>Passo</th>
-                    <th>Pedido</th>
-                    <th>Projeto</th>
-                    <th>Contexto</th>
-                    <th>Remover</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for prompt, project_name, filename in loaded_prompts %}
-                <tr>
-                    <td style="text-align: center;">{{ loop.index }}</td>
-                    <td>&nbsp;&nbsp;&nbsp;{{ prompt[:50] }}&nbsp;&nbsp;&nbsp;</td>
-                    <td>&nbsp;&nbsp;&nbsp;{{ project_name }}&nbsp;&nbsp;&nbsp;</td>
-                    <td>&nbsp;&nbsp;&nbsp;{{ filename }}&nbsp;&nbsp;&nbsp;</td>
-                    <td style="text-align: center; height: 16px; width: 16px">
-                        <img class="delete-icon" src="static/trash-bin.png" style="width: 20px; height: 20px; object-fit: cover;" value="{{ loop.index }}">
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
 
     <script>
         const form = document.querySelector("form");
@@ -201,8 +239,7 @@
                     alert("Forneça um pedido ao contexto!");
                     return;
                 }
-                if (!chk_include_context.checked)
-                {
+                if (!chk_include_context.checked) {
                     clicked_button.value = "load_context_step_btn_nofile"
                 }
             }
@@ -260,6 +297,28 @@
             // Envia a solicitação
             request.send();
         });*/
+
+        // seleciuonar o tab ativo
+        const tabs = document.querySelectorAll('.tab');
+        // Get all content elements
+        const contents = document.querySelectorAll('.content');
+        // Add click event listener to each tab
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function () {
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                // Add active class to the clicked tab
+                this.classList.add('active');
+                // Hide all content elements
+                contents.forEach(c => c.classList.remove('active'));
+                // Show the content element corresponding to the clicked tab
+                document.getElementById(this.dataset.tab).classList.add('active');
+                document.getElementById("activeTab").value = this.id;
+            });
+        });
+
+        // select the tab
+        document.getElementById(document.getElementById("activeTab").value).click();
 
     </script>
 </body>

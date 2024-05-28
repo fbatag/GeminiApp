@@ -1,3 +1,10 @@
+export PROJECT_ID=$(gcloud config get project)
+export REGION=southamerica-east1
+export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
+export USER_EMAIL=dev@fbatagin.altostrat.com
+
+
+
 gcloud config set project <projecto a ser usado> #- rodar se "gcloud config get project" retornar um projeto diferente do desejado
 export PROJECT_ID=$(gcloud config get project)
 export REGION=<REGION> # deve ser uma região que onde o Gemini esteja deploiado - us-central1 southamerica-east1 us-east1 us-east4
@@ -8,12 +15,15 @@ export USER_EMAIL_DEPLOY=<usesr que continuará fazendo deploy de novas versões
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable appengine.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
+gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
 gcloud services enable iap.googleapis.com 
-gcloud services enable vision.googleapis.com
+gcloud services enable vision.googleapis.com # para covnersão de pdf em texto - não usado atualmente
 
 gsutil mb -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
+
+gsutil mb -l southamerica-east1 gs://gen-ai-app-unit-tests-$PROJECT_ID
+gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-unit-tests-$PROJECT_ID
 
 gcloud iam service-accounts create gemini-app-sa \
 --display-name "Gemini App Generator Service Account" \
@@ -23,19 +33,31 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role roles/aiplatform.user
 
-gcloud projects add-iam-policy-binding $PROJECT_ID \
---member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
---role roles/storage.admin
+gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_ID \
+--member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role=roles/storage.legacyBucketWriter --project=$PROJECT_ID
+
+gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-unit-tests-$PROJECT_ID
+--member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role=roles/storage.objectUser --project=$PROJECT_ID
 
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role roles/serviceusage.serviceUsageConsumer
+
+# removida a permissão abaixo para manter o princípio do menor previlégio
+#gcloud projects add-iam-policy-binding $PROJECT_ID \
+#--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+#--role roles/storage.admin
+
 
 gcloud app create --project=$PROJECT_ID --region=$REGION --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
 gcloud app deploy --project=$PROJECT_ID --quiet
 gcloud app firewall-rules update default --action DENY
 gcloud app firewall-rules create 100 --action ALLOW --source-range <CIDR> --description "Limitando ao acesso da rede corporativa"
+# Ou somente tráfego interno 
+gcloud app services update default --ingress=internal-only
 
 gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SUPPORT_EMAIL
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp

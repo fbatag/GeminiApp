@@ -1,3 +1,27 @@
+.tabs {
+  display: flex;
+  margin-bottom: 20px;
+}
+.tab {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  cursor: pointer;
+}
+.tab.active {
+  background-color: #f0f0f0;
+  border-bottom: 1px solid #ccc;
+}
+/* Basic styling for content */
+.content {
+  display: none;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+.content.active {
+  display: block;
+}
+
 body {
     font-family: Arial, sans-serif;
     margin: 0;
