@@ -61,8 +61,8 @@ safety_settings = {
 global_loaded_prompts = dict()
 global_contexts = dict()
 FOLDERS =  "!<FOLDERS>!"
-global_unit_tests = []
-
+global_unit_tests = dict()
+global_unit_tests[FOLDERS] = []
 
 
 def get_iap_user():
@@ -163,6 +163,9 @@ def index():
     elif clicked_button == "loadTestUnitBucketFolders":
         loadTestUnitBucketFolders()
         return renderIndex(activeTab="tabUnitTestGeneration")
+    elif clicked_button == "generate_unit_tests_btn":
+        generate_unit_tests()
+        return renderIndex(activeTab="tabUnitTestGeneration")
     return renderIndex()
 
 def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="tabContextGeneration"):
@@ -178,19 +181,18 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="ta
     txt_prompt = ""
     if keep_prompt:
         txt_prompt = request.form.get("txt_prompt", "")
+    context_projects = []
+    contexts = []
+    unit_tests_projects = []
     if project == "" and len(gc[FOLDERS]) > 0:
         project = gc[FOLDERS][0]
-    if project == "" or len(gc[FOLDERS]) == 0:
-        #print("EMPTY ** choosen_model_name="+ choosen_model_name +" project=" + project + " projects=[] contexts=[]")
-        return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, 
-                               project=project, projects=[], contexts=[], txt_prompt=txt_prompt, 
-                               projects_tests=global_unit_tests,
-                               activeTab=activeTab,
-                               any_error=any_error)
+    if project != "" and len(gc[FOLDERS]) > 0:
+        context_projects = gc[FOLDERS]
+        contexts = contexts=gc[project]
     #print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
     return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, 
-                           project=project, projects=gc[FOLDERS], contexts=gc[project], txt_prompt=txt_prompt, 
-                           projects_tests=global_unit_tests,
+                           project=project, projects=context_projects, contexts=contexts, txt_prompt=txt_prompt, 
+                           projects_tests=global_unit_tests[FOLDERS],
                            activeTab=activeTab,
                            any_error=any_error)
     
@@ -239,15 +241,27 @@ def convertToText(folder, file):
     operation.result(timeout=420)
 
 def loadContextsBucket():
-    print("METHOD: loadContextsBucket")    
-    blobs = contextsBucket.list_blobs()
+    print("METHOD: loadContextsBucket")
+    global global_contexts
+    global_contexts = getBucketFilesAndFolders(contextsBucket)
+
+def loadTestUnitBucketFolders():
+    print("METHOD: loadTestUnitBucketFolders")
+    global global_unit_tests
+    global_unit_tests = getBucketFilesAndFolders(unitTestBucket)
+    
+def getBucketFilesAndFolders(fromBucket):
+    print("METHOD: getBucketFilesAndFolders: Bucket Name: " + fromBucket.name)
+    if not fromBucket.exists:
+        raise Exception("O bucket "+ fromBucket.name + " não existe. É necessário cria-lo como parte da configuração do App")
+    blobs = fromBucket.list_blobs()
     gc = dict()
     projects = []
     for blob in blobs:
         # Extract folder name by splitting on '/' and taking everything but the last part
         parts = blob.name.split('/')
         if len(parts) > 1:
-            folder_name = '/'.join(parts[:-1])
+            folder_name = parts[0]
         else:
             folder_name = "/"  # Root level
         # Add blob to the corresponding folder list
@@ -257,27 +271,7 @@ def loadContextsBucket():
         if parts[-1]:
             gc[folder_name].append(parts[-1])
     gc[FOLDERS]  = projects
-    global global_contexts
-    global_contexts = gc
-
-def loadTestUnitBucketFolders():
-    print("METHOD: loadTestUnitBucketFolders")
-    if not unitTestBucket.exists:
-        raise Exception("This is a generic exception")
-    blobs = unitTestBucket.list_blobs(prefix="", delimiter="/")
-    blobs = unitTestBucket.list_blobs()
-    projects = []
-    for blob in blobs:
-        print (blob.name)
-        if blob.name.endswith("/"):
-            #folder = blob.name.strip('/')
-            parts = blob.name.split('/')
-            if len(parts) == 1:
-                # Extract folder name by splitting on '/' and taking everything but the last part
-                projects.append(parts[0])
-    global global_unit_tests
-    global_unit_tests = projects   
-    
+    return gc
 
 def proceed(target_method="regenerate"):
     print("METHOD: proceed" + " target_method: " + target_method)
@@ -416,6 +410,17 @@ def clearDir():
     #files = os.listdir(temp_dir)
     #for file in files:
     #    os.remove(os.path.join(temp_dir, file))
+
+
+def generate_unit_tests():
+    print("METHOD: generate_unit_tests")
+    folder = request.form["projects_tests_slc"] + "/"
+    print(folder)
+    blobs = unitTestBucket.list_blobs(prefix=folder)
+    for blob in blobs:
+        print(blob.name)
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -135,8 +135,8 @@
                 {% if projects_tests|length > 0 %}
                 <label for="projects_tests_slc">Projeto:</label>
                 <select name="projects_tests_slc" id="projects_tests_slc">
-                    {% for project in projects_tests %}
-                    <option value="{{ project }}">{{ project }}</option>
+                    {% for project_test in projects_tests %}
+                    <option value="{{ project_test }}">{{ project_test }}</option>
                     {% endfor %}
                 </select>
                 <br>
@@ -147,8 +147,7 @@
                 </p>
                 {% endif %}
                 <br>
-                <button type="submit" name="generate_unit_tests_btn" class="btn-build-style">Gerar
-                    testes</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="generate_unit_tests_btn" class="btn-build-style">Gerar testes unitários</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_unit_tests_btn" class="btn-build-style">Atualizar projetos</button>
             </div>
         </div>
