@@ -4,8 +4,8 @@ from google.cloud import storage
 
 FOLDERS =  "!<FOLDERS>!"
 storage_client = storage.Client()
-UNIT_TESTS_BUCKET_NAME = os.environ.get("UNIT_TESTS_BUCKET_NAME", "gen-ai-app-unit-tests-") + storage_client.project
-unitTestBucket = storage_client.bucket(UNIT_TESTS_BUCKET_NAME, storage_client.project)
+CODE_BUCKET_NAME = os.environ.get("CODE_BUCKET_NAME", "gen-ai-app-code-") + storage_client.project
+unitTestBucket = storage_client.bucket(CODE_BUCKET_NAME, storage_client.project)
 
 def getBucketFilesAndFolders(fromBucket):
     print("METHOD: getBucketFilesAndFolders: Bucket Name: " + fromBucket.name)
@@ -33,17 +33,19 @@ def getBucketFilesAndFolders(fromBucket):
 def main():
     #blobs = unitTestBucket.list_blobs(prefix="", delimiter="/")
     #blobs = unitTestBucket.list_blobs(delimiter="/")
-    blobs = unitTestBucket.list_blobs(prefix="GeminiApp/")
+    blobs = unitTestBucket.list_blobs(sufix="/")
     #blobs = unitTestBucket.list_blobs()
     projects = []
     for blob in blobs:
         print (blob.name)
-        if blob.name.endswith("/"):
-            #folder = blob.name.strip('/')
-            parts = blob.name.split('/')
-            if len(parts) == 1:
-                # Extract folder name by splitting on '/' and taking everything but the last part
-                projects.append(parts[0])    
 
+def new_func():
+    parts = "aaa/bbb".split("/")
+    print(parts)
+    parts = "/bbb".split("/")
+    print(parts)
+    parts = "aaa/".split("/")
+    print(parts)
+    
 main()
-print(getBucketFilesAndFolders(unitTestBucket))
+#print(getBucketFilesAndFolders(unitTestBucket))

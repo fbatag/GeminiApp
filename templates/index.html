@@ -10,16 +10,27 @@
 
 <body>
     <form id="index_form" action="/" method="POST" enctype="multipart/form-data">
+        
+        <div>
+            <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>&nbsp;&nbsp;
+            <select name="model_name">
+                <option value="gemini-1.5-flash-001">Gemini-1.5-flash-001</option>
+                <option value="gemini-1.5-pro-001">Gemini-1.5-pro-001</option>
+                <option value="gemini-experimental">Gemini-experimental</option>
+                <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
+                <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
+            </select>
+            <b style="float: right; text-align: right;">User: {{ user}}</b>
+        </div>
+        <br>
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
-
         <div class="tabs">
             <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
-            <div class="tab" id="tabUnitTestGeneration" data-tab="divUnitTestGeneration">Gerador de teste unitário</div>
+            <div class="tab" id="tabCodeFilesGeneration" data-tab="divUnitTestGeneration">Gerador de teste unitário</div>
         </div>
 
         <div class="content" id="divContextGeneration">
             <h2 style="display: inline-block;">Gerador de conteúdo</h2>
-            <b style="float: right; text-align: right;">User: {{ user}}</b>
             <br>
             <div id="div_general_context" class="form-load">
                 <br>
@@ -52,7 +63,7 @@
                         {% for context in contexts %}
                         <option value="{{ context }}">{{ context }}</option>
                         {% endfor %}
-                    </select>&nbsp;&nbsp;&nbsp;
+                    </select>
                     {% else %}
                     {% if projects|length > 0 %}
                     <label id="load_message" style="font-weight: bold;">
@@ -80,14 +91,7 @@
                 estória</button>&nbsp;&nbsp;&nbsp;
             {% if loaded_prompts|length > 0 %}
             <button type="submit" name="reset" class="btn-clear-style">Limpar</button>&nbsp;&nbsp;&nbsp;
-            <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>
-            <select name="model_name">
-                <option value="gemini-1.5-flash-001">Gemini-1.5-flash-001</option>
-                <option value="gemini-1.5-pro-001">Gemini-1.5-pro-001</option>
-                <option value="gemini-experimental">Gemini-experimental</option>
-                <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
-                <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
-            </select>&nbsp;&nbsp;&nbsp;
+
             <button type="submit" name="regenerate_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
             <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
             <button type="submit" name="save" class="btn-general-style">Salvar</button>
@@ -130,13 +134,20 @@
             {% endif %}
         </div>
         <div class="content" id="divUnitTestGeneration">
+            <input type="hidden" id="choosen_project_code" name="choosen_project_code" value="{{ project_prog_lang }}">
             <h2 style="display: inline-block;">Gerador de teste unitário em lote</h2>
             <div id="div_test-unit" class="form-box">
-                {% if projects_tests|length > 0 %}
-                <label for="projects_tests_slc">Projeto:</label>
-                <select name="projects_tests_slc" id="projects_tests_slc">
-                    {% for project_test in projects_tests %}
-                    <option value="{{ project_test }}">{{ project_test }}</option>
+                {% if projects_code|length > 0 %}
+                <label for="projects_code_slc">Projeto:</label>
+                <select name="projects_code_slc" id="projects_code_slc">
+                    {% for project_code in projects_code %}
+                    <option value="{{ project_code }}">{{ project_code }}</option>
+                    {% endfor %}
+                </select></select>&nbsp;&nbsp;&nbsp;
+                <label for="prog_lang_exts_slc">Linguagens:</label>
+                <select name="prog_lang_exts_slc" id="prog_lang_exts_slc">
+                    {% for prog_land_ext in prog_land_exts %}
+                    <option value="{{ prog_land_ext }}">{{ prog_land_ext }}</option>
                     {% endfor %}
                 </select>
                 <br>
@@ -148,8 +159,14 @@
                 {% endif %}
                 <br>
                 <button type="submit" name="generate_unit_tests_btn" class="btn-build-style">Gerar testes unitários</button>&nbsp;&nbsp;&nbsp;
-                <button type="submit" name="update_unit_tests_btn" class="btn-build-style">Atualizar projetos</button>
+                <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
             </div>
+            <br>
+            {% if codeResponse !="" %}
+            <div id="codeResponse" class="form-list" style="white-space: pre-wrap;">
+                {{ codeResponse }}
+            </div>
+            {% endif %}
         </div>
     </form>
 
@@ -172,7 +189,6 @@
         if (projects_slc != null) {
             projects_slc.value = choosen_project.value;
             projects_slc.addEventListener("change", function () {
-                console.log("projects_slc");
                 if (choosen_project.value == this.value) return;
                 choosen_project.value == this.value;
                 clicked_button.value = "projects_slc";
@@ -185,6 +201,20 @@
             clicked_button.value = "contexts_slc";
             form.submit();           
         });*/
+
+        const projects_code_slc = document.getElementById("projects_code_slc");
+        const choosen_project_code = document.getElementById("choosen_project_code");
+        if (projects_code_slc != null) {
+            projects_code_slc.value = choosen_project_code.value;
+            projects_code_slc.addEventListener("change", function () {
+                console.log("projects_code_slc");
+                if (choosen_project_code.value == this.value) return;
+                choosen_project_code.value == this.value;
+                clicked_button.value = "projects_code_slc";
+                form.submit();
+            });
+        }
+        
         const step_lst = document.getElementById("step_lst");
         if (step_lst != null) {
             step_lst.addEventListener("click", function (event) {
@@ -318,6 +348,12 @@
 
         // select the tab
         document.getElementById(document.getElementById("activeTab").value).click();
+
+        /*if (document.getElementById("activeTab").id == "tabCodeFilesGeneration")
+        { não funcionou
+            clicked_button.value = "update_code_files_btn";
+            form.submit();
+        }*/
 
     </script>
 </body>

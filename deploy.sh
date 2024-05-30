@@ -19,11 +19,11 @@ gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
 gcloud services enable iap.googleapis.com 
 gcloud services enable vision.googleapis.com # para covnersão de pdf em texto - não usado atualmente
 
-gsutil mb -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
+gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
 
-gsutil mb -l southamerica-east1 gs://gen-ai-app-unit-tests-$PROJECT_ID
-gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-unit-tests-$PROJECT_ID
+gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-code-$PROJECT_ID
+gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-code-$PROJECT_ID
 
 gcloud iam service-accounts create gemini-app-sa \
 --display-name "Gemini App Generator Service Account" \
@@ -37,7 +37,7 @@ gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_
 --member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role=roles/storage.legacyBucketWriter --project=$PROJECT_ID
 
-gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-unit-tests-$PROJECT_ID
+gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
 --member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role=roles/storage.objectUser --project=$PROJECT_ID
 
@@ -49,7 +49,6 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 #gcloud projects add-iam-policy-binding $PROJECT_ID \
 #--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 #--role roles/storage.admin
-
 
 gcloud app create --project=$PROJECT_ID --region=$REGION --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 

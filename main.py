@@ -9,7 +9,6 @@ from google.cloud import storage
 from google.appengine.api import memcache, wrap_wsgi_app
 from google.appengine.ext import db, ndb
 
-
 #PROJECT_ID = os.environ.get("PROJECT_ID")
 REGION = os.environ.get("REGION")
 print(REGION)
@@ -28,11 +27,12 @@ if IS_GAE_ENV_STD:
 
 storage_client = storage.Client()
 CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
-UNIT_TESTS_BUCKET_NAME = os.environ.get("UNIT_TESTS_BUCKET_NAME", "gen-ai-app-unit-tests-") + storage_client.project
+CODE_BUCKET_NAME = os.environ.get("CODE_BUCKET_NAME", "gen-ai-app-code-") + storage_client.project
 print(CONTEXTS_BUCKET_NAME)
-print(UNIT_TESTS_BUCKET_NAME)
+print(CODE_BUCKET_NAME)
 contextsBucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
-unitTestBucket  = storage_client.bucket(UNIT_TESTS_BUCKET_NAME, storage_client.project)
+codeBucket  = storage_client.bucket(CODE_BUCKET_NAME, storage_client.project)
+
 vertexai.init()
 
 generation_config = {
@@ -61,8 +61,10 @@ safety_settings = {
 global_loaded_prompts = dict()
 global_contexts = dict()
 FOLDERS =  "!<FOLDERS>!"
-global_unit_tests = dict()
-global_unit_tests[FOLDERS] = []
+global_code_files = dict()
+global_code_files[FOLDERS] = []
+PROG_LANGS = ("py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m")
+
 
 
 def get_iap_user():
@@ -158,17 +160,18 @@ def index():
     # generate.html buttons
     elif clicked_button == "save_result_btn":
         return save_results()
-    elif clicked_button == "update_unit_tests_btn":
-        return proceed("update_unit_tests_btn")
-    elif clicked_button == "loadTestUnitBucketFolders":
-        loadTestUnitBucketFolders()
-        return renderIndex(activeTab="tabUnitTestGeneration")
+    elif clicked_button == "update_code_files_btn":
+        return proceed("update_code_files_btn")
+    elif clicked_button == "loadCodeBucketFolders":
+        loadCodeBucketFolders()
+        return renderIndex(activeTab="tabCodeFilesGeneration")
+    elif clicked_button == "projects_code_slc":
+        return renderIndex(activeTab="tabCodeFilesGeneration")
     elif clicked_button == "generate_unit_tests_btn":
-        generate_unit_tests()
-        return renderIndex(activeTab="tabUnitTestGeneration")
+        return renderIndex(activeTab="tabCodeFilesGeneration", codeResponse = generate_unit_tests())
     return renderIndex()
 
-def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="tabContextGeneration"):
+def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="tabContextGeneration",codeResponse=""):
     print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
     global global_contexts
     gc = global_contexts
@@ -176,24 +179,31 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="ta
     #print("activeTab: ", activeTab)
     if not FOLDERS in gc:
         return proceed("loadContextsBucket")
-    project = request.form.get("projects_slc", "")
     choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-preview-0514")
     txt_prompt = ""
     if keep_prompt:
         txt_prompt = request.form.get("txt_prompt", "")
     context_projects = []
     contexts = []
-    unit_tests_projects = []
+    project = request.form.get("projects_slc", "")
     if project == "" and len(gc[FOLDERS]) > 0:
         project = gc[FOLDERS][0]
     if project != "" and len(gc[FOLDERS]) > 0:
         context_projects = gc[FOLDERS]
         contexts = contexts=gc[project]
+    prog_land_exts = []
+    project_lang = request.form.get("projects_code_slc", "")
+    if project_lang == "" and len(global_code_files[FOLDERS]) > 0:
+        project_lang = global_code_files[FOLDERS][0]
+    if project_lang != "":
+        prog_land_exts = global_code_files[project_lang]
+    print("project_lang=" + project_lang + " - global_code_files[FOLDERS]=" + str(global_code_files[FOLDERS]) + " - prog_land_exts=" + str(prog_land_exts))
+    
     #print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
     return render_template(page, user=get_iap_user(), loaded_prompts=getLoadedPrompts(), choosen_model_name=choosen_model_name, 
                            project=project, projects=context_projects, contexts=contexts, txt_prompt=txt_prompt, 
-                           projects_tests=global_unit_tests[FOLDERS],
-                           activeTab=activeTab,
+                           projects_code=global_code_files[FOLDERS], prog_land_exts=prog_land_exts, project_prog_lang=project_lang,
+                           activeTab=activeTab, codeResponse=codeResponse,
                            any_error=any_error)
     
 
@@ -245,12 +255,12 @@ def loadContextsBucket():
     global global_contexts
     global_contexts = getBucketFilesAndFolders(contextsBucket)
 
-def loadTestUnitBucketFolders():
-    print("METHOD: loadTestUnitBucketFolders")
-    global global_unit_tests
-    global_unit_tests = getBucketFilesAndFolders(unitTestBucket)
+def loadCodeBucketFolders():
+    print("METHOD: loadCodeBucketFolders")
+    global global_code_files
+    global_code_files = getBucketFilesAndFolders(codeBucket, True)
     
-def getBucketFilesAndFolders(fromBucket):
+def getBucketFilesAndFolders(fromBucket, groupByExt = False):
     print("METHOD: getBucketFilesAndFolders: Bucket Name: " + fromBucket.name)
     if not fromBucket.exists:
         raise Exception("O bucket "+ fromBucket.name + " não existe. É necessário cria-lo como parte da configuração do App")
@@ -266,10 +276,15 @@ def getBucketFilesAndFolders(fromBucket):
             folder_name = "/"  # Root level
         # Add blob to the corresponding folder list
         if not folder_name in gc:
-            gc[folder_name] = []
             projects.append(folder_name)
+            gc[folder_name] = []
         if parts[-1]:
-            gc[folder_name].append(parts[-1])
+            if groupByExt:
+                ext = parts[-1].split(".")[-1].lower()
+                if ext in PROG_LANGS and not ext in gc[folder_name]:
+                    gc[folder_name].append(ext)
+            else:
+                gc[folder_name].append(parts[-1])
     gc[FOLDERS]  = projects
     return gc
 
@@ -321,7 +336,7 @@ def tokenConsumptionMessage(usage_metadata, token_consumption):
     return 
 
 def getGsUri(folder, filename):
-    return "gs://" + CONTEXTS_BUCKET_NAME +"/"+ folder + "/" + filename
+    return "gs://" + CONTEXTS_BUCKET_NAME +"/" + folder + "/" + filename
 
 def prepare_prompt(promptItem):
     print("METHOD: prepare_prompt")
@@ -411,14 +426,31 @@ def clearDir():
     #for file in files:
     #    os.remove(os.path.join(temp_dir, file))
 
+def getFileExtenstion(filename):
+    parts = filename.split(".")
+    return parts[-1].lower()
 
 def generate_unit_tests():
     print("METHOD: generate_unit_tests")
-    folder = request.form["projects_tests_slc"] + "/"
-    print(folder)
-    blobs = unitTestBucket.list_blobs(prefix=folder)
+    model_name = request.form["model_name"]
+    folder = request.form["projects_code_slc"] + "/"
+    prog_lang = request.form["prog_lang_exts_slc"]
+    print("prog_lang: " + prog_lang)
+    blobs = codeBucket.list_blobs(prefix=folder)
+    codeResponse = ""
+    model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     for blob in blobs:
-        print(blob.name)
+        if getFileExtenstion(blob.name) == prog_lang:
+            uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
+            try:
+                prompt = [Part.from_uri(uri=uri, mime_type="text/plain"), "Generate unit tests"]
+                response = model.generate_content(prompt)
+                codeResponse += response.text + "\n\n"
+            except Exception as e:
+                print(e)
+        else:
+            print("SKIPED -> " + blob.name)
+    return codeResponse
 
 
 
