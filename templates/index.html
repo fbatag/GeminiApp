@@ -94,12 +94,12 @@
 
             <button type="submit" name="regenerate_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
             <button type="submit" name="view" class="btn-general-style">Visalizar</button>&nbsp;&nbsp;&nbsp;
-            <button type="submit" name="save" class="btn-general-style">Salvar</button>
+            <button type="submit" name="save_prompts" class="btn-general-style">Salvar</button>
             {% endif %}
             <input type="file" id="load_prompts_file" accept=".json" style="display: none;"></input>
             <input type="hidden" id="choosen_project" name="choosen_project" value="{{ project }}">
             <input type="hidden" id="prompt_history_json" name="prompt_history_json"></input>
-            <input type="hidden" id="prompts_filename" name="prompts_filename"></input>
+            <input type="hidden" id="filename_to_save" name="filename_to_save"></input>
             <input type="hidden" id="clicked_button" name="clicked_button" value="">
             <input type="hidden" id="step_to_delete" name="step_to_delete" value="">
             {% if loaded_prompts|length > 0 %}
@@ -133,11 +133,19 @@
             </div>
             {% endif %}
         </div>
+
         <div class="content" id="divUnitTestGeneration">
             <input type="hidden" id="choosen_project_code" name="choosen_project_code" value="{{ project_prog_lang }}">
             <h2 style="display: inline-block;">Gerador de teste unitário em lote</h2>
             <div id="div_test-unit" class="form-box">
-                {% if projects_code|length > 0 %}
+                {% if projects_code|length == 0 %}
+                <p id="load_message_test_unit" style="font-weight: bold;">
+                    Nenhum projeto encontrado. Clique no botão "Atualizar projetos" e se não houver projetos,
+                    faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
+                </p>
+                <br>
+                <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
+                {% else %}
                 <label for="projects_code_slc">Projeto:</label>
                 <select name="projects_code_slc" id="projects_code_slc">
                     {% for project_code in projects_code %}
@@ -149,24 +157,23 @@
                     {% for prog_land_ext in prog_land_exts %}
                     <option value="{{ prog_land_ext }}">{{ prog_land_ext }}</option>
                     {% endfor %}
-                </select>
-                <br>
-                {% else %}
-                <p id="load_message_test_unit" style="font-weight: bold;">
-                    Nenhum projeto encontrado. Clique no botão "Atualizar projetos" e se não houver projetos,
-                    faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
-                </p>
-                {% endif %}
-                <br>
-                <button type="submit" name="generate_unit_tests_btn" class="btn-build-style">Gerar testes unitários</button>&nbsp;&nbsp;&nbsp;
+                </select>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
+                <br>
+                <br>
+                <button type="submit" name="generate_unit_tests_1x_btn" class="btn-genereta-style">Gerar de uma vez</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="generate_unit_tests_1a1_btn" class="btn-genereta-style">Gerar 1 a 1</button>
+                <!-- trocar por um checkbox
+                    button type="submit" name="generate_save_unit_tests_1a1_btn" class="btn-genereta-style">Gerar em arquivos</button>&nbsp;&nbsp;&nbsp; -->
+                {% endif %}
             </div>
             <br>
-            {% if codeResponse !="" %}
-            <div id="codeResponse" class="form-list" style="white-space: pre-wrap;">
-                {{ codeResponse }}
+            {% for file, content in codeResponse %}  
+            <p style="font-weight: bold; color: white;">{{ file }}</p>
+            <div class="form-list" style="white-space: pre-wrap;">
+                {{ content }}
             </div>
-            {% endif %}
+            {% endfor %}
         </div>
     </form>
 
@@ -276,14 +283,14 @@
                 load_prompts_file.click();
                 return;
             }
-            else if (clicked_button.value == "save") {
+            else if (clicked_button.value == "save_prompts" || clicked_button.value == "save_unit_tests_btn") {
                 const filename = prompt("Digite o caminho do arquivo:");
                 if (!filename) return;
                 if (filename.trim() == "") {
                     alert("Entre um nome de arquivo válido!");
                     return;
                 }
-                document.getElementById("prompts_filename").value = filename.trim();
+                document.getElementById("filename_to_save").value = filename.trim();
             }
             this.submit();
         });

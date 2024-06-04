@@ -70,6 +70,12 @@ PROG_LANGS = ("py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt
 def get_iap_user():
     return request.headers.get('X-Goog-Authenticated-User-Email', "None")
 
+def get_temp_file():
+    tempfile = request.headers.get('X-Goog-Authenticated-User-Email', "None")
+    tempfile = tempfile.replace("@", "_").replace(".", "_")
+    tempfile += ".txt"
+    return tempfile
+
 def getLoadedPrompts():
     user = get_iap_user()
     if user not in global_loaded_prompts:
@@ -153,7 +159,7 @@ def index():
         return reset()
     elif clicked_button == "view":
         return view()
-    elif clicked_button == "save":
+    elif clicked_button == "save_prompts":
         return save_prompts()
     elif clicked_button == "load_prompts_btn":
         return load_prompts(request.form["prompt_history_json"])
@@ -161,14 +167,23 @@ def index():
     elif clicked_button == "save_result_btn":
         return save_results()
     elif clicked_button == "update_code_files_btn":
-        return proceed("update_code_files_btn")
+        return proceed("update_code_files_btn", bucket=CODE_BUCKET_NAME)
     elif clicked_button == "loadCodeBucketFolders":
         loadCodeBucketFolders()
         return renderIndex(activeTab="tabCodeFilesGeneration")
     elif clicked_button == "projects_code_slc":
         return renderIndex(activeTab="tabCodeFilesGeneration")
-    elif clicked_button == "generate_unit_tests_btn":
-        return renderIndex(activeTab="tabCodeFilesGeneration", codeResponse = generate_unit_tests())
+    elif clicked_button == "generate_unit_tests_1x_btn" or clicked_button == "generate_unit_tests_1a1_btn" or clicked_button == "generate_save_unit_tests_1a1_btn":
+        return render_template("proceed.html", target_method=clicked_button, model_name=request.form.get("model_name",""), 
+                               folder = request.form["projects_code_slc"], prog_lang = request.form["prog_lang_exts_slc"])
+    elif clicked_button == "show_generate_unit_tests_1a1_btn":
+        return renderIndex(activeTab="tabCodeFilesGeneration", codeResponse = generate_unit_tests_one_by_one())
+    elif clicked_button == "show_generate_unit_tests_1x_btn":
+        return renderIndex(activeTab="tabCodeFilesGeneration", codeResponse = generate_unit_tests_once())
+    elif clicked_button == "exec_generate_save_unit_tests_1a1_btn":
+        return renderIndex(activeTab="tabCodeFilesGeneration", codeResponse = generate_unit_tests_one_by_one(save=True))
+    elif clicked_button == "save_unit_tests_btn":
+        return save_unit_tests()
     return renderIndex()
 
 def renderIndex(page="index.html", any_error="", keep_prompt=True, activeTab="tabContextGeneration",codeResponse=""):
@@ -288,12 +303,12 @@ def getBucketFilesAndFolders(fromBucket, groupByExt = False):
     gc[FOLDERS]  = projects
     return gc
 
-def proceed(target_method="regenerate"):
+def proceed(target_method="regenerate",bucket=CONTEXTS_BUCKET_NAME):
     print("METHOD: proceed" + " target_method: " + target_method)
     if target_method == "regenerate":
         if len(getLoadedPrompts()) == 0:
             return renderIndex(any_error="show_error_no_prompts")
-    return render_template("proceed.html", target_method=target_method, model_name=request.form.get("model_name",""), bucket=CONTEXTS_BUCKET_NAME, txt_prompt = request.form.get("txt_prompt", ""))
+    return render_template("proceed.html", target_method=target_method, model_name=request.form.get("model_name",""), bucket=bucket, txt_prompt = request.form.get("txt_prompt", ""))
 
 def generate():
     print("METHOD: regenerate")
@@ -386,14 +401,27 @@ def load_prompts(prompts_json):
 def save_prompts():
     print("METHOD: save_prompts")
     loaded_prompts = getLoadedPrompts()
-    prompts_filename = request.form["prompts_filename"] + ".json"
-    # Converte a lista "loaded_prompts" para um objeto JSON
-    json_data = json.dumps(loaded_prompts)
-    prompts_json_path = os.path.join(tempDir(), "prompts_file.json")
-    with open(prompts_json_path, "w") as f:
-        f.write(json_data)
-    #return send_file(prompts_json_path, as_attachment=True, download_name="prompts_file.json")
-    return send_file(prompts_json_path, as_attachment=True, download_name=prompts_filename)
+    return save_local_file(json.dumps(loaded_prompts), ".json")
+
+def save_unit_tests():
+    print("METHOD: save_unit_tests")
+    return save_local_file(request.form["codeResponse"], "." + request.form["prog_lang_exts_slc"])
+
+def save_results():
+    print("METHOD: save_results")
+    return save_local_file(request.form["geminiResponse"], ".txt")
+
+def save_local_file(content, ext):
+    print("METHOD: save_local_file: " + ext)
+    filename_to_save = request.form["filename_to_save"] + ext
+    return save_cli_file(request.form["filename_to_save"] + ext, content)
+
+def save_cli_file( filename, content):
+    print("METHOD: save_cli_file: " + filename)
+    tempfile_path = os.path.join(tempDir(), get_temp_file())
+    with open(tempfile_path, "w") as f:
+        f.write(content)
+    return send_file(tempfile_path, as_attachment=True, download_name=filename)
 
 def delete_prompt_step(step_num_str):
     print("METHOD: delete_prompt_step")
@@ -404,15 +432,6 @@ def delete_prompt_step(step_num_str):
         loaded_prompts.remove(loaded_prompts[step_num-1])
         saveLoadedPrompts(loaded_prompts)
 
-def save_results():
-    print("METHOD: save_results")
-    results_filename = request.form["results_filename"] + ".txt"
-    print(results_filename)
-    file_path = os.path.join(tempDir(), "results_file.txt")
-    geminiResponse = request.form["geminiResponse"]
-    with open(file_path, "w") as arquivo:
-        arquivo.write(geminiResponse)
-    return send_file(file_path, as_attachment=True, download_name=results_filename)
 
 def tempDir():
     temp_dir = "/tmp"
@@ -422,36 +441,57 @@ def tempDir():
 
 def clearDir():
     temp_dir = tempDir()
-    #files = os.listdir(temp_dir)
-    #for file in files:
-    #    os.remove(os.path.join(temp_dir, file))
+    files = os.listdir(temp_dir)
+    for file in files:
+        os.remove(os.path.join(temp_dir, file))
 
 def getFileExtenstion(filename):
     parts = filename.split(".")
     return parts[-1].lower()
 
-def generate_unit_tests():
+def generate_unit_tests_one_by_one(save=False):
     print("METHOD: generate_unit_tests")
     model_name = request.form["model_name"]
     folder = request.form["projects_code_slc"] + "/"
     prog_lang = request.form["prog_lang_exts_slc"]
     print("prog_lang: " + prog_lang)
     blobs = codeBucket.list_blobs(prefix=folder)
-    codeResponse = ""
+    codeResponse = []
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     for blob in blobs:
         if getFileExtenstion(blob.name) == prog_lang:
             uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
             try:
-                prompt = [Part.from_uri(uri=uri, mime_type="text/plain"), "Generate unit tests"]
+                prompt = ["Generate unit tests for this code", Part.from_uri(uri=uri, mime_type="text/plain")]
                 response = model.generate_content(prompt)
-                codeResponse += response.text + "\n\n"
+                file_tuple = ("Test_" + blob.name, response.text)
+                codeResponse.append(file_tuple)
+                if (save):
+                    save_cli_file("Test_" + blob.name, response.text) # não dá pra salvar um por um, então salvar no bucket                
             except Exception as e:
                 print(e)
         else:
             print("SKIPED -> " + blob.name)
     return codeResponse
 
+def generate_unit_tests_once():
+    print("METHOD: generate_unit_tests")
+    model_name = request.form["model_name"]
+    folder = request.form["projects_code_slc"] + "/"
+    prog_lang = request.form["prog_lang_exts_slc"]
+    print("prog_lang: " + prog_lang)
+    blobs = codeBucket.list_blobs(prefix=folder)
+    model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
+    parts = ["Generate unit tests for this code"]
+    for blob in blobs:
+        if getFileExtenstion(blob.name) == prog_lang:
+            uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
+            parts.append(Part.from_uri(uri=uri, mime_type="text/plain"))
+        else:
+            print("SKIPED -> " + blob.name)
+
+    codeResponse = model.generate_content(parts)
+    return [ ("Test_all"+"."+prog_lang, codeResponse.text) ]
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@
         <button class="btn-general-style" type="submit" name="save_result_btn">Salvar</button>&nbsp;&nbsp;&nbsp;
         <button class="btn-general-style" type="submit" name="return_btn">Retornar</button>
         <input type="hidden" name="geminiResponse" value="{{ flatResponse }}">
-        <input type="hidden" id="results_filename" name="results_filename">
+        <input type="hidden" id="filename_to_save" name="filename_to_save">
         <input type="hidden" name="model_name" value="{{ model_name }}">
         <input type="hidden" id="clicked_button" name="clicked_button" value="">
     </form>
@@ -86,7 +86,7 @@
                     alert("Entre um nome de arquivo válido!");
                     return;
                 }
-                document.getElementById("results_filename").value = filename;
+                document.getElementById("filename_to_save").value = filename;
             }
             else if (event.submitter.name == "fw-qustion-btn") {
                 prompt = document.getElementById("prompt").value.trim();

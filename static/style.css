@@ -104,6 +104,16 @@ body {
     width: 180px;
   }
   
+  .btn-genereta-style {
+    background-color: red;
+    color: white;
+    padding: 5px 10px;
+    border: 2px solid darkred;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 180px;
+  }
+
   .btn-load-style {
     background-color: blue;
     color: white;
