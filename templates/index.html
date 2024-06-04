@@ -26,18 +26,25 @@
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
         <div class="tabs">
             <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
-            <div class="tab" id="tabCodeFilesGeneration" data-tab="divUnitTestGeneration">Gerador de teste unitário</div>
+            <div class="tab" id="tabUnitTestCodeGeneration" data-tab="divUnitTestGeneration">Gerador de teste unitário</div>
+            <div class="tab" id="tabProjectAnalysis" data-tab="divProjectAnalysis">Análise de código</div>
         </div>
 
         <div class="content" id="divContextGeneration">
             <h2 style="display: inline-block;">Gerador de conteúdo</h2>
             <br>
-            <div id="div_general_context" class="form-load">
+            <div id="div_general_context" class="form-box">
                 <br>
-                <label for="txt_prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
+                <label for="prompt_sugestions_slc">Sugestões:</label>
+                <select name="prompt_sugestions_slc" id="prompt_sugestions_slc">
+                    {% for prompt_sugestion in prompt_sugestions %}
+                    <option value="{{ prompt_sugestion }}">{{ prompt_sugestion }}</option>
+                    {% endfor %}
+                </select>
                 <br>
-                <textarea name="txt_prompt" id="txt_prompt" rows="3" cols="70"
-                    class="txt-general-style">{{ txt_prompt }}</textarea>
+                    <label for="txt_prompt" style="color: black; font-weight: bold;">Pedido ao contexto:</label>
+                <br>
+                <textarea name="txt_prompt" id="txt_prompt">{{ txt_prompt }}</textarea>
                 <br><br>
                 <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context"
                     checked>
@@ -135,9 +142,9 @@
         </div>
 
         <div class="content" id="divUnitTestGeneration">
-            <input type="hidden" id="choosen_project_code" name="choosen_project_code" value="{{ project_prog_lang }}">
+            <input type="hidden" id="choosen_project_tests" name="choosen_project_tests" value="{{ choosen_project_tests }}">
             <h2 style="display: inline-block;">Gerador de teste unitário em lote</h2>
-            <div id="div_test-unit" class="form-box">
+            <div id="div_test_unit" class="form-box">
                 {% if projects_code|length == 0 %}
                 <p id="load_message_test_unit" style="font-weight: bold;">
                     Nenhum projeto encontrado. Clique no botão "Atualizar projetos" e se não houver projetos,
@@ -146,8 +153,8 @@
                 <br>
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 {% else %}
-                <label for="projects_code_slc">Projeto:</label>
-                <select name="projects_code_slc" id="projects_code_slc">
+                <label for="projects_u_tests_slc">Projeto:</label>
+                <select name="projects_u_tests_slc" id="projects_u_tests_slc">
                     {% for project_code in projects_code %}
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
@@ -168,17 +175,67 @@
                 {% endif %}
             </div>
             <br>
-            {% for file, content in codeResponse %}  
+            {% for file, response in codeResponse %}  
             <p style="font-weight: bold; color: white;">{{ file }}</p>
             <div class="form-list" style="white-space: pre-wrap;">
-                {{ content }}
+                {{ response }}
             </div>
             {% endfor %}
+        </div>
+        
+        <div class="content" id="divProjectAnalysis">
+            <input type="hidden" id="choosen_project_code" name="choosen_project_code" value="{{ choosen_project_code }}">
+            <h2 style="display: inline-block;">Análise de código/projeto com GenAI</h2>
+            <div id="div_analysis_code" class="form-box">
+                {% if projects_code|length == 0 %}
+                <p id="load_message_test_unit" style="font-weight: bold;">
+                    Nenhum projeto encontrado. Clique no botão "Atualizar projetos" e se não houver projetos,
+                    faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
+                </p>
+                <br>
+                <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
+                {% else %}
+                <label for="projects_code_slc">Projeto:</label>
+                <select name="projects_code_slc" id="projects_code_slc">
+                    {% for project_code in projects_code %}
+                    <option value="{{ project_code }}">{{ project_code }}</option>
+                    {% endfor %}
+                </select></select>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
+                <br><br>
+                <label for="analysis_sugestions_slc">Sugestões:</label>
+                <select name="analysis_sugestions_slc" id="analysis_sugestions_slc">
+                    {% for analysis_sugestion in analysis_sugestions %}
+                    <option value="{{ analysis_sugestion }}">{{ analysis_sugestion }}</option>
+                    {% endfor %}
+                </select>
+                <br>
+                <label for="txt_code_analysis" style="color: black; font-weight: bold;">Análise:</label>
+                <br>
+                <textarea name="txt_code_analysis" id="txt_code_analysis">{{ txt_code_analysis }}</textarea>
+                <br><br>
+                <button type="submit" name="generate_code_analysis_btn" class="btn-genereta-style">Gerar análise</button>&nbsp;&nbsp;&nbsp;
+                {% endif %}
+            </div>
+            <br>
+            {% if analysisResult != "" %}
+            <div class="form-list" style="white-space: pre-wrap;">
+                {{ analysisResult }}
+            </div>
+            {% endif %}
         </div>
     </form>
 
     <script>
         const form = document.querySelector("form");
+
+        const prompt_sugestions_slc = document.getElementById("prompt_sugestions_slc");
+        const txt_prompt = document.getElementById("txt_prompt");
+
+        prompt_sugestions_slc.addEventListener("change", function () {
+                txt_prompt.value = prompt_sugestions_slc.value;
+            });
+
         const clicked_button = document.getElementById("clicked_button");
         const choosen_project = document.getElementById("choosen_project")
 
@@ -209,15 +266,21 @@
             form.submit();           
         });*/
 
-        const projects_code_slc = document.getElementById("projects_code_slc");
         const choosen_project_code = document.getElementById("choosen_project_code");
-        if (projects_code_slc != null) {
+        const projects_code_slc = document.getElementById("projects_code_slc");
+        if (projects_code_slc != null && choosen_project_code.value != "") {
             projects_code_slc.value = choosen_project_code.value;
-            projects_code_slc.addEventListener("change", function () {
-                console.log("projects_code_slc");
-                if (choosen_project_code.value == this.value) return;
-                choosen_project_code.value == this.value;
-                clicked_button.value = "projects_code_slc";
+        }
+
+        const projects_u_tests_slc = document.getElementById("projects_u_tests_slc");
+        const choosen_project_tests = document.getElementById("choosen_project_tests");
+        if (projects_u_tests_slc != null) {
+            projects_u_tests_slc.value = choosen_project_tests.value;
+            projects_u_tests_slc.addEventListener("change", function () {
+                console.log("projects_u_tests_slc");
+                if (choosen_project_tests.value == this.value) return;
+                choosen_project_tests.value == this.value;
+                clicked_button.value = "projects_u_tests_slc";
                 form.submit();
             });
         }
@@ -271,7 +334,7 @@
             clicked_button.value = event.submitter.name;
             console.log("CLICKED BTN: " + clicked_button.value);
             if (clicked_button.value == "load_context_step_btn") {
-                if (document.getElementById("txt_prompt").value.trim() == "") {
+                if (txt_prompt.value.trim() == "") {
                     alert("Forneça um pedido ao contexto!");
                     return;
                 }
@@ -296,51 +359,23 @@
         });
 
 
-        /*const loadGcsFileButton = document.querySelector("input[name=load_gcs_file]");
-        loadGcsFileButton.addEventListener("click", function () {
-            // Obtém o nome do bucket e do arquivo do GCS
-            const bucketName = prompt("Digite o nome do bucket:");
-            const fileName = prompt("Digite o nome do arquivo:");
-
-            // Verifica se o nome do bucket e do arquivo foram fornecidos
-            if (!bucketName || !fileName) {
-                alert("Por favor, forneça o nome do bucket e do arquivo!");
-                return;
-            }
-
-            // Cria um objeto de solicitação para obter o arquivo do GCS
-            const request = new XMLHttpRequest();
-            request.open("GET", `https://storage.googleapis.com/${bucketName}/${fileName}`);
-
-            // Adiciona um ouvinte de evento para quando a solicitação for concluída
-            request.onload = function () {
-                // Verifica se a solicitação foi bem-sucedida
-                if (request.status === 200) {
-                    // Obtém o texto do arquivo
-                    const fileContent = request.responseText;
-
-                    // Define o valor do campo de entrada oculto "textfile_content" para o conteúdo do arquivo
-                    document.querySelector("input[name=textfile_content]").value = fileContent;
-
-                    // Envia o formulário
-                    document.querySelector("form").submit();
-                } else {
-                    // Exibe uma mensagem de erro
-                    alert("Não foi possível obter o arquivo do GCS!");
-                }
-            };
-
-            // Envia a solicitação
-            request.send();
-        });*/
+        const txt_code_analysis = document.getElementById("txt_code_analysis");
+        if (txt_code_analysis != null) {
+            const analysis_sugestions_slc = document.getElementById("analysis_sugestions_slc");
+            analysis_sugestions_slc.addEventListener("change", function () {
+            txt_code_analysis.value = analysis_sugestions_slc.value;
+            });        
+        }
 
         // seleciuonar o tab ativo
         const tabs = document.querySelectorAll('.tab');
         // Get all content elements
         const contents = document.querySelectorAll('.content');
+        const activeTab = document.getElementById("activeTab");
         // Add click event listener to each tab
         tabs.forEach(tab => {
             tab.addEventListener('click', function () {
+                //if (activeTab.value = this.id) return;
                 // Remove active class from all tabs
                 tabs.forEach(t => t.classList.remove('active'));
                 // Add active class to the clicked tab
@@ -349,14 +384,15 @@
                 contents.forEach(c => c.classList.remove('active'));
                 // Show the content element corresponding to the clicked tab
                 document.getElementById(this.dataset.tab).classList.add('active');
-                document.getElementById("activeTab").value = this.id;
+                activeTab.value = this.id;
             });
         });
 
         // select the tab
-        document.getElementById(document.getElementById("activeTab").value).click();
+        console.log(activeTab.value);
+        document.getElementById(activeTab.value).click();
 
-        /*if (document.getElementById("activeTab").id == "tabCodeFilesGeneration")
+        /*if (document.getElementById("activeTab").id == "tabUnitTestCodeGeneration")
         { não funcionou
             clicked_button.value = "update_code_files_btn";
             form.submit();

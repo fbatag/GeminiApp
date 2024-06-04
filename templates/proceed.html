@@ -10,64 +10,40 @@
 
 <body>
     <h1>Processando...</h1>
-
-    {% if target_method == "regenerate" %}
-    <p style="color: white; font-weight: bold;">Processando a geração usando o {{ model_name }}. AGUARDE ...</p>
     <form action="/" method="POST" style="display: inline-block;">
         <input type="hidden" name="model_name" value="{{ model_name }}">
-        <input type="hidden" id="clicked_button" name="clicked_button" value="regenerate">
-    </form>
+        <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
+        <input type="hidden" name="activeTab" value="{{ activeTab }}">
+        <input type="hidden" name="projects_u_tests_slc" value="{{ folder }}">
+        <input type="hidden" name="prog_lang_exts_slc" value="{{ prog_lang }}">
+        <input type="hidden" name="projects_code_slc" value="{{ choosen_project_code }}">
+        <input type="hidden" name="txt_code_analysis" value="{{ txt_code_analysis }}">
+        <input type="hidden" id="clicked_button" name="clicked_button" value="{{target_method}}">
+    {% if target_method == "regenerate" %}
+        <p style="color: white; font-weight: bold;">Processando a geração usando o {{ model_name }}... AGUARDE ...</p>
     {% endif %}
 
     {% if target_method == "loadContextsBucket" %}
-    <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS.
-        AGUARDE ....</p>
-    <form action="/" method="POST" style="display: inline-block;">
-        <input type="hidden" name="model_name" value="{{ model_name }}">
-        <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
-        <input type="hidden" id="clicked_button" name="clicked_button" value="loadContextsBucket">
-    </form>
+        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS... AGUARDE ....</p>
     {% endif %}
 
-    {% if target_method == "update_code_files_btn" %}
-    <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS. AGUARDE ....</p>
-    <form action="/" method="POST" style="display: inline-block;">
-        <input type="hidden" name="model_name" value="{{ model_name }}">
-        <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
-        <input type="hidden" id="clicked_button" name="clicked_button" value="loadCodeBucketFolders">
-    </form>
+    {% if target_method == "loadCodeBucketFolders" %}
+        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS... AGUARDE ....</p>
     {% endif %}
 
-    {% if target_method == "generate_unit_tests_1x_btn" %}
-    <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}" de uma vez. AGUARDE ....</p>
-    <form action="/" method="POST" style="display: inline-block;">
-        <input type="hidden" name="model_name" value="{{ model_name }}">
-        <input type="hidden" name="projects_code_slc" value="{{ folder }}">
-        <input type="hidden" name="prog_lang_exts_slc" value="{{ prog_lang }}">
-        <input type="hidden" id="clicked_button" name="clicked_button" value="show_generate_unit_tests_1x_btn">
-    </form>
+    {% if target_method == "generate_unit_tests" %}
+        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}" de uma vez... AGUARDE ....</p>
     {% endif %}
 
     {% if target_method == "generate_unit_tests_1a1_btn" %}
-    <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}", arquivo por arquivo. AGUARDE ....</p>
-    <form action="/" method="POST" style="display: inline-block;">
-        <input type="hidden" name="model_name" value="{{ model_name }}">
-        <input type="hidden" name="projects_code_slc" value="{{ folder }}">
-        <input type="hidden" name="prog_lang_exts_slc" value="{{ prog_lang }}">
-        <input type="hidden" id="clicked_button" name="clicked_button" value="show_generate_unit_tests_1a1_btn">
-    </form>
+        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}", arquivo por arquivo... AGUARDE ....</p>
     {% endif %}
 
-    {% if target_method == "generate_save_unit_tests_1a1_btn" %}
-    <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}", arquivo por arquivo e salvando. AGUARDE ....</p>
-    <form action="/" method="POST" style="display: inline-block;">
-        <input type="hidden" name="model_name" value="{{ model_name }}">
-        <input type="hidden" name="projects_code_slc" value="{{ folder }}">
-        <input type="hidden" name="prog_lang_exts_slc" value="{{ prog_lang }}">
-        <input type="hidden" id="clicked_button" name="clicked_button" value="exec_generate_save_unit_tests_1a1_btn">
-    </form>
+    {% if target_method == "generate_code_analysis" %}
+        <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ folder }}"... AGUARDE ....</p>
     {% endif %}
-
+    
+    </form>
 </body>
 
 <script>
