@@ -71,7 +71,10 @@ PROMPT_SUGESTIONS=["Crie casos de teste a partir do sistema descrito no video:",
 ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de código:", "Gere casos de teste para o sistema composto pelos arquivos a seguir:"]
 
 def get_iap_user():
-    return request.headers.get('X-Goog-Authenticated-User-Email', "None")
+    user = request.headers.get('X-Goog-Authenticated-User-Email', "None")
+    if user != "None":
+        user = user.replace("accounts.google.com:","")
+    return user
 
 def getLoadedPrompts():
     user = get_iap_user()
@@ -435,7 +438,7 @@ def get_temp_user_folder(sub_folders=[]):
     temp_dir = "/tmp"
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
-    temp_user_dir = request.headers.get('X-Goog-Authenticated-User-Email', "None")
+    temp_user_dir = get_iap_user()
     temp_user_dir = temp_user_dir.replace("@", "_").replace(".", "_")
     temp_user_dir = os.path.join(temp_dir, temp_user_dir)
     if not os.path.exists(temp_user_dir):
