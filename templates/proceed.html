@@ -14,33 +14,37 @@
         <input type="hidden" name="model_name" value="{{ model_name }}">
         <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
         <input type="hidden" name="activeTab" value="{{ activeTab }}">
-        <input type="hidden" name="projects_u_tests_slc" value="{{ folder }}">
-        <input type="hidden" name="prog_lang_exts_slc" value="{{ prog_lang }}">
+        <input type="hidden" name="projects_u_tests_slc" value="{{ choosen_project_tests }}">
         <input type="hidden" name="projects_code_slc" value="{{ choosen_project_code }}">
         <input type="hidden" name="txt_code_analysis" value="{{ txt_code_analysis }}">
         <input type="hidden" id="clicked_button" name="clicked_button" value="{{target_method}}">
+        <input type="hidden" id="chk_include_ctx" name="chk_include_ctx" value="{{chk_include_ctx}}">
     {% if target_method == "regenerate" %}
         <p style="color: white; font-weight: bold;">Processando a geração usando o {{ model_name }}... AGUARDE ...</p>
     {% endif %}
 
     {% if target_method == "loadContextsBucket" %}
-        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS... AGUARDE ....</p>
+        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket "{{ bucket}}" do GCS... AGUARDE ....</p>
     {% endif %}
 
     {% if target_method == "loadCodeBucketFolders" %}
-        <p style="color: white; font-weight: bold;">Lendo os projetos e arquivos de contexto do bucket{{ bucket}} do GCS... AGUARDE ....</p>
+        <p style="color: white; font-weight: bold;">Lendo os projetos do bucket "{{ bucket}}" do GCS... AGUARDE ....</p>
     {% endif %}
 
-    {% if target_method == "generate_unit_tests" %}
-        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}" de uma vez... AGUARDE ....</p>
-    {% endif %}
-
-    {% if target_method == "generate_unit_tests_1a1_btn" %}
-        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ folder }}" para linguagem ".{{ prog_lang }}", arquivo por arquivo... AGUARDE ....</p>
+    {% if target_method == "generateUnitTests" or target_method == "priorGenerateUnitTests" %}
+        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ choosen_project_tests }}"... AGUARDE ....</p>
     {% endif %}
 
     {% if target_method == "generate_code_analysis" %}
-        <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ folder }}"... AGUARDE ....</p>
+        <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ choosen_project_code }}"... AGUARDE ....</p>
+    {% endif %}
+
+    {% if blob_list|length > 0  %}
+    <br>
+    <p style="color: white; font-weight: bold;">Lista de arquivos que serão analisados. Cada um deles pode levar de poucos segundos a dois minutos para ser processado:</p>
+        {% for blob in blob_list %}
+        <p style="color: white; font-weight: bold;">&nbsp;&nbsp;&nbsp;{{ loop.index }}:&nbsp;&nbsp;{{ blob.name }} - {{ blob.size }} bytes</p>
+        {% endfor %}
     {% endif %}
     
     </form>

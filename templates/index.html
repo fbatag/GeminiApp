@@ -46,8 +46,11 @@
                 <br>
                 <textarea name="txt_prompt" id="txt_prompt">{{ txt_prompt }}</textarea>
                 <br><br>
-                <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context"
-                    checked>
+                {% if chk_include_ctx == "true" %}
+                <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context" checked>
+                {% else %}
+                <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context">
+                {% endif %}
                 <label for="chk_include_context" style="color: black; font-weight: bold;">Incluir contexto</label>
                 <br>
                 <div id="div_projects" class="form-box">
@@ -86,8 +89,7 @@
                     </button>
                 </div>
                 <br><br>
-                <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar
-                    passo</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="load_context_step_btn" class="btn-load-style">Adicionar passo</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="clear_context" id="clear_context" value="Limpar" class="btn-clear-style"
                     style="display: none;">
                     <br>
@@ -109,6 +111,7 @@
             <input type="hidden" id="filename_to_save" name="filename_to_save"></input>
             <input type="hidden" id="clicked_button" name="clicked_button" value="">
             <input type="hidden" id="step_to_delete" name="step_to_delete" value="">
+            <input type="hidden" id="chk_include_ctx" name="chk_include_ctx" value="{{chk_include_ctx}}">
             {% if loaded_prompts|length > 0 %}
             <h2>Pedidos e contextos carregados</h2>
             <div id="div_context_steps" class="form-list">
@@ -158,24 +161,17 @@
                     {% for project_code in projects_code %}
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
-                </select></select>&nbsp;&nbsp;&nbsp;
-                <label for="prog_lang_exts_slc">Linguagens:</label>
-                <select name="prog_lang_exts_slc" id="prog_lang_exts_slc">
-                    {% for prog_land_ext in prog_land_exts %}
-                    <option value="{{ prog_land_ext }}">{{ prog_land_ext }}</option>
-                    {% endfor %}
-                </select>&nbsp;&nbsp;&nbsp;
+                </select></select>&nbsp;&nbsp;&nbsp;               
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
-                <br>
-                <br>
-                <button type="submit" name="generate_unit_tests_1x_btn" class="btn-genereta-style">Gerar de uma vez</button>&nbsp;&nbsp;&nbsp;
-                <button type="submit" name="generate_unit_tests_1a1_btn" class="btn-genereta-style">Gerar 1 a 1</button>
-                <!-- trocar por um checkbox
-                    button type="submit" name="generate_save_unit_tests_1a1_btn" class="btn-genereta-style">Gerar em arquivos</button>&nbsp;&nbsp;&nbsp; -->
+                <br><br>
+                <button type="submit" name="generate_unit_tests" class="btn-generate-style">Gerar </button>
                 {% endif %}
             </div>
             <br>
-            {% for file, response in codeResponse %}  
+            {% if unitTestFiles|length > 0 %}
+            <button type="submit" name="donwload_zip_unit_tests" class="btn-general-style">Baixar Zip </button>
+            {% endif %}
+            {% for file, response in unitTestFiles %}  
             <p style="font-weight: bold; color: white;">{{ file }}</p>
             <div class="form-list" style="white-space: pre-wrap;">
                 {{ response }}
@@ -214,7 +210,7 @@
                 <br>
                 <textarea name="txt_code_analysis" id="txt_code_analysis">{{ txt_code_analysis }}</textarea>
                 <br><br>
-                <button type="submit" name="generate_code_analysis_btn" class="btn-genereta-style">Gerar análise</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="generate_code_analysis_btn" class="btn-generate-style">Gerar análise</button>&nbsp;&nbsp;&nbsp;
                 {% endif %}
             </div>
             <br>
@@ -237,17 +233,23 @@
             });
 
         const clicked_button = document.getElementById("clicked_button");
-        const choosen_project = document.getElementById("choosen_project")
-
+        const choosen_project = document.getElementById("choosen_project");
+        const chk_include_ctx = document.getElementById("chk_include_ctx");
+        const div_projects = document.getElementById("div_projects");
         // projects_slc doesn't exist if there are no projects
-        const chk_include_context = document.getElementById("chk_include_context")
-        chk_include_context.addEventListener("change", function () {
-            console.log("chk_include_context");
-            if (chk_include_context.checked)
-                document.getElementById("div_projects").style.display = "block";
-            else
-                document.getElementById("div_projects").style.display = "none";
-        });
+        const chk_include_context = document.getElementById("chk_include_context");
+        function chk_include_context_changed() {
+            if (chk_include_context.checked) {
+                div_projects.style.display = "block";
+                chk_include_ctx.value = "true";
+            }
+            else{
+                div_projects.style.display = "none";
+                chk_include_ctx.value = "false";
+            }
+        }
+        chk_include_context_changed();
+        chk_include_context.addEventListener("change", chk_include_context_changed);
 
         const projects_slc = document.getElementById("projects_slc");
         if (projects_slc != null) {
@@ -259,30 +261,17 @@
                 form.submit();
             });
         }
-        /*const contexts_slc = document.getElementById("contexts_slc");
-        contexts_slc.addEventListener("change", function () {
-            console.log("contexts_slc");
-            clicked_button.value = "contexts_slc";
-            form.submit();           
-        });*/
+
+        const projects_u_tests_slc = document.getElementById("projects_u_tests_slc");
+        const choosen_project_tests = document.getElementById("choosen_project_tests");
+        if (projects_u_tests_slc != null && choosen_project_tests.value != "") {
+            projects_u_tests_slc.value = choosen_project_tests.value;
+        }
 
         const choosen_project_code = document.getElementById("choosen_project_code");
         const projects_code_slc = document.getElementById("projects_code_slc");
         if (projects_code_slc != null && choosen_project_code.value != "") {
             projects_code_slc.value = choosen_project_code.value;
-        }
-
-        const projects_u_tests_slc = document.getElementById("projects_u_tests_slc");
-        const choosen_project_tests = document.getElementById("choosen_project_tests");
-        if (projects_u_tests_slc != null) {
-            projects_u_tests_slc.value = choosen_project_tests.value;
-            projects_u_tests_slc.addEventListener("change", function () {
-                console.log("projects_u_tests_slc");
-                if (choosen_project_tests.value == this.value) return;
-                choosen_project_tests.value == this.value;
-                clicked_button.value = "projects_u_tests_slc";
-                form.submit();
-            });
         }
         
         const step_lst = document.getElementById("step_lst");
@@ -338,15 +327,13 @@
                     alert("Forneça um pedido ao contexto!");
                     return;
                 }
-                if (!chk_include_context.checked) {
-                    clicked_button.value = "load_context_step_btn_nofile"
-                }
             }
             else if (clicked_button.value == "load_prompts_btn") {
                 load_prompts_file.click();
                 return;
             }
-            else if (clicked_button.value == "save_prompts" || clicked_button.value == "save_unit_tests_btn") {
+            //else if (clicked_button.value == "save_prompts" || clicked_button.value == "donwload_zip_unit_tests") {
+            else if (clicked_button.value == "save_prompts") {
                 const filename = prompt("Digite o caminho do arquivo:");
                 if (!filename) return;
                 if (filename.trim() == "") {
