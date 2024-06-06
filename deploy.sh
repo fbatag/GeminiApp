@@ -17,7 +17,7 @@ gcloud services enable aiplatform.googleapis.com
 gcloud services enable appengine.googleapis.com
 gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
 gcloud services enable iap.googleapis.com 
-gcloud services enable vision.googleapis.com # para covnersão de pdf em texto - não usado atualmente
+#gcloud services enable vision.googleapis.com # para covnersão de pdf em texto - não usado atualmente
 
 gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
@@ -35,7 +35,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_ID \
 --member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
---role=roles/storage.legacyBucketWriter --project=$PROJECT_ID
+--role=roles/storage.objectUser --project=$PROJECT_ID
 
 gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
 --member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
@@ -50,6 +50,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 #--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 #--role roles/storage.admin
 
+##### --- deploy em GAE Standard --- #####
 gcloud app create --project=$PROJECT_ID --region=$REGION --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
 gcloud app deploy --project=$PROJECT_ID --quiet
@@ -65,7 +66,7 @@ gcloud iap web enable --resource-type=app-engine
 gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL" --role=roles/iap.httpsResourceAccessor
 
 
-# o trecho a seguir é somente se o usuário que continuara atualziando as versões é diferente e terá menos permissões
+# o trecho a seguir é somente se o usuário que continuara atuali\ando as versões é diferente e terá menos permissões
 gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/appengine.appAdmin
 gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/cloudbuild.builds.editor
 gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/storage.admin
@@ -74,27 +75,62 @@ gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam
     --member="user:$USER_EMAIL_DEPLOY" \
     --role="roles/iam.serviceAccountUser"
 
+##### --- deploy em GAE Flexible e Cloud Run --- #####
+gcloud services enable run.googleapis.com
 # permissões necessárias caso o deploy seja feito no AppEngine Flexible/Cloud Run (?)
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role=roles/logging.logWriter
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
---role --role=roles/monitoring.metricWriter
+--role=roles/monitoring.metricWriter
 
 
 #deploy em Cloud Run (não é necessário yaml)
 export SERVICE_NAME=gemini-app-ui
 # primeiro deploy
-gcloud run deploy $SERVICE_NAME --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com --region=$REGION --source . --quiet
+gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=3Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=10m \
+   --no-allow-unauthenticated --quiet \
+   --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
 # deploys seguintes (omitir o service account)
-gcloud run deploy $SERVICE_NAME --region=$REGION --source . --quiet
+
 
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
 
-# Para o Cloud Run usar o IAP como autenticador, ele precisar ter um Load Balancer na frente
+# LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna) - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
+gcloud services enable compute.googleapis.com
+gcloud compute networks create default --project=$PROJECT_ID --subnet-mode=custom --mtu=1460 --bgp-routing-mode=global
+gcloud compute networks subnets create default --project=$PROJECT_ID --network=default --region=$REGION --range=10.0.0.0/24
+gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID --network=default --region=$REGION --range=10.255.0.0/24 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
+
+# Crie um NEG sem servidor para o app sem servidor para o Cloud Run
+gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
+    --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
+#Crie um serviço de back-end
+gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTP 
+# Adicione o NEG sem servidor como um back-end ao serviço de back-end
+gcloud compute backend-services add-backend $SERVICE_NAME-backend --region=$REGION
+    --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
+# Cria o frontend (LB) HTTP
+gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend --region=$REGION
+# Cria o frontend (LB) HTTP-proxy
+gcloud compute target-http-proxies create $SERVICE_NAME-http-proxy  --url-map=$SERVICE_NAME-lb --region=$REGION 
+gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule --region=$REGION --ports=80 \
+   --network=default --subnet=default --target-http-proxy-region=$REGION \
+   --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=INTERNAL_MANAGED
+
+##gcloud compute addresses create $SERVICE_NAME--lb-int-ip --project=$PROJECT_ID --region=$REGION --address-type=INTERNAL \
+##   --subnet=projects/$PROJECT_ID/regions/$REGION/subnetworks/default --purpose=GCE_ENDPOINT
+##export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME--lb-int-ip --format="get(address)")
+##gcloud compute firewall-rules create fw-allow-lb-access --network=default --action=allow --direction=ingress \
+##    --source-ranges=10.0.0.0/24 --rules=tcp,udp,icmp
+##gcloud compute firewall-rules create fw-allow-health-check --network=lb-network --action=allow --direction=ingress \
+##    --target-tags=allow-health-check --source-ranges=130.211.0.0/22,35.191.0.0/16 --rules=tcp,udp,icmp    
+
+# LOAD BALANCER - EXTERNO - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
 gcloud compute addresses create $SERVICE_NAME--lb-ip --network-tier=PREMIUM --ip-version=IPV4 --global
 export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME--lb-ip --format="get(address)" --global)
+
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
        --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
@@ -106,12 +142,10 @@ gcloud compute backend-services add-backend $SERVICE_NAME-backend  --global \
 
 # Crie o LB
 gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend 
-
-# Cria o frontend (LB) HTTP
+# Cria o frontend (LB) HTTP-proxy
 gcloud compute target-http-proxies create $SERVICE_NAME-http-proxy  --url-map=$SERVICE_NAME-lb
 gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule  --address=$LB_IP_NUMBER --global --ports=80 \
    --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=EXTERNAL_MANAGED  --network-tier=PREMIUM 
- 
 # Cria o frontend (LB) HTTPS
 gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --domains **DOMAIN**
 gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy  --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
@@ -121,9 +155,17 @@ gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --address=$L
       
 # Configurar o IAP para o LB
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
+echo $PROJECT_NUMBER
 gcloud beta services identity create --service=iap.googleapis.com --project=$PROJECT_ID
 gcloud run services add-iam-policy-binding $SERVICE_NAME --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com  \
 --role='roles/run.invoker'
+
+gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SUPPORT_EMAIL
+gcloud iap oauth-clients create BRAND --display_name=GeminiApp
+gcloud iap web enable --resource-type=backend-services --service=$SERVICE_NAME-backend
+    
+gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL" --role=roles/iap.httpsResourceAccessor
+
 # Escopo Global
 gcloud compute backend-services update $SERVICE_NAME-backend --global --iap=enabled
 # OU Escopo Regional
