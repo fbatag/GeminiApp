@@ -1,4 +1,5 @@
 export PROJECT_ID=$(gcloud config get project)
+echo $PROJECT_ID
 export REGION=southamerica-east1
 export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
 export USER_EMAIL=dev@fbatagin.altostrat.com
@@ -89,10 +90,11 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 #deploy em Cloud Run (não é necessário yaml)
 export SERVICE_NAME=gemini-app-ui
 # primeiro deploy
-gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=3Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=10m \
-   --no-allow-unauthenticated --quiet \
+gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=15m \
+   --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
    --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
 # deploys seguintes (omitir o service account)
+# --cpu-throttling (CPU not allways allocated) and -no-allow-unauthenticated are default
 
 
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
@@ -107,17 +109,23 @@ gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID -
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
     --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTP 
+gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
-gcloud compute backend-services add-backend $SERVICE_NAME-backend --region=$REGION
+gcloud compute backend-services add-backend $SERVICE_NAME-backend --region=$REGION \
     --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
 # Cria o frontend (LB) HTTP
 gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend --region=$REGION
-# Cria o frontend (LB) HTTP-proxy
+# Cria o frontend (LB) HTTP-proxy (NÃO FUNCIONA COM O IAP QUE REQUER HTTPS)
 gcloud compute target-http-proxies create $SERVICE_NAME-http-proxy  --url-map=$SERVICE_NAME-lb --region=$REGION 
-gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule --region=$REGION --ports=80 \
-   --network=default --subnet=default --target-http-proxy-region=$REGION \
-   --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=INTERNAL_MANAGED
+gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule --region=$REGION --ports=80 --network=default --subnet=default \
+   --target-http-proxy-region=$REGION --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=INTERNAL_MANAGED
+# Cria o frontend (LB) HTTPS-proxy
+openssl genrsa -out private.key 2048
+openssl req -new -x509 -key private.key -out certificate.crt -days 3650
+gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
+gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy  --region=$REGION --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
+gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --region=$REGION --ports=443 --network=default --subnet=default \
+   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED  
 
 ##gcloud compute addresses create $SERVICE_NAME--lb-int-ip --project=$PROJECT_ID --region=$REGION --address-type=INTERNAL \
 ##   --subnet=projects/$PROJECT_ID/regions/$REGION/subnetworks/default --purpose=GCE_ENDPOINT
@@ -142,11 +150,11 @@ gcloud compute backend-services add-backend $SERVICE_NAME-backend  --global \
 
 # Crie o LB
 gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend 
-# Cria o frontend (LB) HTTP-proxy
+# Cria o frontend (LB) HTTP-proxy (NÃO FUNCIONA COM O IAP QUE REQUER HTTPS)
 gcloud compute target-http-proxies create $SERVICE_NAME-http-proxy  --url-map=$SERVICE_NAME-lb
 gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule  --address=$LB_IP_NUMBER --global --ports=80 \
    --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=EXTERNAL_MANAGED  --network-tier=PREMIUM 
-# Cria o frontend (LB) HTTPS
+# Cria o frontend (LB) HTTPS-proxy
 gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --domains **DOMAIN**
 gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy  --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
 gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --address=$LB_IP_NUMBER --global --ports=443 \
@@ -170,3 +178,19 @@ gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL" -
 gcloud compute backend-services update $SERVICE_NAME-backend --global --iap=enabled
 # OU Escopo Regional
 gcloud compute backend-services update $SERVICE_NAME-backend --region $REGION --iap=enabled
+
+
+
+#### OUTRAS ESTRATÉGIAS DE DEPLOU NO CLOUD RUN
+
+gcloud builds submit --tag gcr.io/$PROJECT_ID/gem-app
+gcloud run deploy delete --image=gcr.io/$PROJECT_ID/gem-app --region=$REGION --allow-unauthenticated
+  
+
+gcloud run deploy $SERVICE_NAME-no-thread --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=15m \
+   --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling  \
+   --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
+
+gcloud run deploy $SERVICE_NAME-gunicorn-thread --region=$REGION --image=gcr.io/$PROJECT_ID/gem-app --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=15m \
+   --allow-unauthenticated  --cpu-throttling  \
+   --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 

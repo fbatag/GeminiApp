@@ -26,6 +26,9 @@ app = Flask(__name__)
 IS_GAE_ENV_STD = os.getenv('GAE_ENV', "") == "standard"
 if IS_GAE_ENV_STD:
     app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
+#else:
+#    app.run(host='0.0.0.0', port=8080, mult)
+
 
 storage_client = storage.Client()
 CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
@@ -492,22 +495,29 @@ def generateUnitTests():
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     temp_user_folder = get_temp_user_folder()
     print("Cleaning temp_user_folder: " + temp_user_folder)
-    clearDir(temp_user_folder)
+    clearDir(os.path.join(temp_user_folder,folder))
     for blob in priorGenerateUnitTests():
         uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
-        try:
-            prompt = ["Generate unit tests for this code", Part.from_uri(uri=uri, mime_type="text/plain")]
-            response = model.generate_content(prompt)
-            sub_folders = blob.name.split("/")
-            test_filename = "Test_" + sub_folders[-1]
-            print("Code: " + blob.name + " - Test: " + test_filename)
-            file_tuple = (test_filename, response.text)
-            unitTestFiles.append(file_tuple)
-            save_local_file(test_filename, response.text, sub_folders[:-1])
-        except Exception as e:
+        #try:
+        prompt = ["Generate unit tests for this code", Part.from_uri(uri=uri, mime_type="text/plain")]
+        response = model.generate_content(prompt)
+        sub_folders = blob.name.split("/")
+        test_filename = "Test_" + sub_folders[-1]
+        print("Code: " + blob.name + " - Test: " + test_filename)
+        file_tuple = (test_filename, response.text)
+        unitTestFiles.append(file_tuple)
+        save_local_file(test_filename, response.text, sub_folders[:-1])
+        """except Exception as e:
             print(e)
+            file_tuple = ("Error no processamento" , str(e))
+            unitTestFiles.append(file_tuple)"""
+    #try:
     print("Zipping the files")
     zip_folder(os.path.join(temp_user_folder,folder), os.path.join(temp_user_folder, "unit_tests.zip"))
+    """except Exception as e:
+        print(e)
+        file_tuple = ("Error ao zipar os arquivos gerados." , str(e))
+        unitTestFiles.append(file_tuple)"""
     return unitTestFiles
 
 def donwload_zip_unit_tests():

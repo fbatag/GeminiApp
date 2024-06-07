@@ -1,6 +1,5 @@
 Werkzeug
 gunicorn
-magika
 Flask
 google-cloud-aiplatform
 google-cloud-vision
