@@ -2,16 +2,9 @@ export PROJECT_ID=$(gcloud config get project)
 echo $PROJECT_ID
 export REGION=southamerica-east1
 export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
-export USER_EMAIL=dev@fbatagin.altostrat.com
+export USER_GROUP=gcp-devops@fbatagin.altostrat.com
+export DEPLOY_GROUP=gcp-devops@fbatagin.altostrat.com
 
-
-
-gcloud config set project <projecto a ser usado> #- rodar se "gcloud config get project" retornar um projeto diferente do desejado
-export PROJECT_ID=$(gcloud config get project)
-export REGION=<REGION> # deve ser uma região que onde o Gemini esteja deploiado - us-central1 southamerica-east1 us-east1 us-east4
-export SUPPORT_EMAIL=<mail do user executando estes comandos>
-export USER_EMAIL=<user ou grupo do dominio - que usará a aplicação>
-export USER_EMAIL_DEPLOY=<usesr que continuará fazendo deploy de novas versões>
 
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
@@ -64,19 +57,30 @@ gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SU
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp
 gcloud iap web enable --resource-type=app-engine 
     
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL" --role=roles/iap.httpsResourceAccessor
+# Usuário da aplicação = permissão no IAP    
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --role=roles/iap.httpsResourceAccessor
 
+# permissão no Gemini Cloud/Code Assist
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --role=roles/cloudaicompanion.user
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --role=roles/serviceusage.serviceUsageViewer
 
 # o trecho a seguir é somente se o usuário que continuara atuali\ando as versões é diferente e terá menos permissões
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/appengine.appAdmin
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/cloudbuild.builds.editor
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/storage.admin
-gcloud projects add-iam-policy-binding $PROJECT_ID --member="user:$USER_EMAIL_DEPLOY" --role=roles/viewer
-gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
-    --member="user:$USER_EMAIL_DEPLOY" \
-    --role="roles/iam.serviceAccountUser"
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/appengine.deployer
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/cloudbuild.builds.editor
 
-##### --- deploy em GAE Flexible e Cloud Run --- #####
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/storage.admin
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/viewer
+gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+    --member=group:$DEPLOY_GROUP --role=roles/iam.serviceAccountUser
+
+### Permissão nos buckets:
+gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_ID \
+   --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
+
+gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
+   --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
+
+##### --- deploy em GAE Flexible --- #####
 gcloud services enable run.googleapis.com
 # permissões necessárias caso o deploy seja feito no AppEngine Flexible/Cloud Run (?)
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -89,6 +93,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 #deploy em Cloud Run (não é necessário yaml)
 export SERVICE_NAME=gemini-app-ui
+gcloud services enable run.googleapis.com
 # primeiro deploy
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=15m \
    --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
@@ -181,12 +186,11 @@ gcloud compute backend-services update $SERVICE_NAME-backend --region $REGION --
 
 
 
-#### OUTRAS ESTRATÉGIAS DE DEPLOU NO CLOUD RUN
+#### OUTRAS ESTRATÉGIAS DE DEPLOY NO CLOUD RUN
 
 gcloud builds submit --tag gcr.io/$PROJECT_ID/gem-app
 gcloud run deploy delete --image=gcr.io/$PROJECT_ID/gem-app --region=$REGION --allow-unauthenticated
   
-
 gcloud run deploy $SERVICE_NAME-no-thread --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=15m \
    --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling  \
    --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
