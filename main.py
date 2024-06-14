@@ -212,7 +212,7 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles
         project = gc[FOLDERS][0]
     if project != "" and len(gc[FOLDERS]) > 0:
         context_projects = gc[FOLDERS]
-        contexts = contexts=gc[project]
+        contexts = gc[project]
     choosen_project_tests = request.form.get("projects_u_tests_slc", "")
     if choosen_project_tests == "" and len(global_code_projects) > 0:
         choosen_project_tests = global_code_projects[0]
