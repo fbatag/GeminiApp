@@ -37,6 +37,8 @@
 
     {% if target_method == "generate_code_analysis" %}
         <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ choosen_project_code }}"... AGUARDE ....</p>
+        <br>
+        <p style="color: white; font-weight: bold;">PEDIDO: {{ txt_prompt }}</p>
     {% endif %}
 
     {% if blob_list|length > 0  %}

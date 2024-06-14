@@ -65,15 +65,17 @@ gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --role=roles/serviceusage.serviceUsageViewer
 
 # o trecho a seguir é somente se o usuário que continuara atuali\ando as versões é diferente e terá menos permissões
-gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/appengine.deployer
-gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/cloudbuild.builds.editor
-
-gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/storage.admin
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/viewer
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/cloudbuild.builds.editor
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$DEPLOY_GROUP --role=roles/appengine.appAdmin
+gcloud storage buckets add-iam-policy-binding gs://staging.$PROJECT_ID.appspot.com \
+   --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
 gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
     --member=group:$DEPLOY_GROUP --role=roles/iam.serviceAccountUser
 
-### Permissão nos buckets:
+
+
+### Permissão nos buckets - não tem a ver com o redeploy e sim com subir os projetos
 gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_ID \
    --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
 

@@ -70,8 +70,10 @@ global_code_projects =[]
 PROG_LANGS = ("py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m")
 MEDIA_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg","video/mov","video/avi","video/x-flv","video/mpg","video/webm", "video/wmv","video/3gpp" ]
 
-PROMPT_SUGESTIONS=["Crie casos de teste a partir do sistema descrito no video:", "Crie casos de teste a partir do sistema descrito no documento:"]
-ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de código:", "Gere casos de teste para o sistema composto pelos arquivos a seguir:"]
+PROMPT_SUGESTIONS=["", "Crie casos de teste a partir do sistema descrito no video:", "Crie casos de teste a partir do sistema descrito no documento:"]
+ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de código:", 
+                     "Gere casos de teste para o sistema composto pelos arquivos a seguir:",
+                     "Percorra todos os arquivos de código apresentados e compile a lógica que eles executam. 1. Organize por módulos funcionais; 2.Para cada serviço ou módulo funcional, descreva detalhadamente as tarefas que ele desempenha. 3. Detalhe qual a dependência entre eles e como eles interagem ou não um com o outro."]
 
 def get_iap_user():
     user = request.headers.get('X-Goog-Authenticated-User-Email', "None")
