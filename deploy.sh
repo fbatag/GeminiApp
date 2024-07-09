@@ -110,6 +110,8 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
 gcloud services enable compute.googleapis.com
 gcloud compute networks create default --project=$PROJECT_ID --subnet-mode=custom --mtu=1460 --bgp-routing-mode=global
 gcloud compute networks subnets create default --project=$PROJECT_ID --network=default --region=$REGION --range=10.0.0.0/24
+# Proxy-only subnet é uma necessiadae do LBs baseados em Envoy proxy. Assim teoricamente, os INTERNAL e EXTERNAL (não MANAGED) não necessitariam. Mas eu não testei
+# Eles são o Classic (HTTP e TCP) e TCP passthroough - ref: https://cloud.google.com/load-balancing/docs/choosing-load-balancer
 gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID --network=default --region=$REGION --range=10.255.0.0/24 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
 
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run
@@ -132,7 +134,8 @@ openssl req -new -x509 -key private.key -out certificate.crt -days 3650
 gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
 gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy  --region=$REGION --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
 gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --region=$REGION --ports=443 --network=default --subnet=default \
-   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED  
+   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED \
+   --allow-global-access --address=10.0.0.10 # o endereço especifico pode ser passado opcionalmente  e o Global access é pra permitir que outras regiões cheguem no IP via peering
 
 ##gcloud compute addresses create $SERVICE_NAME--lb-int-ip --project=$PROJECT_ID --region=$REGION --address-type=INTERNAL \
 ##   --subnet=projects/$PROJECT_ID/regions/$REGION/subnetworks/default --purpose=GCE_ENDPOINT

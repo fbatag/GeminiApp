@@ -66,10 +66,18 @@ body {
     margin-bottom: 5px;
   }
 
-textarea {
-  width: 100%; /* Set the width to 100% of the screen */
-  rows: 3;
-}
+  option {
+    text-align: left;
+  }
+
+  select {
+    text-align: left;
+  }
+  
+  textarea {
+    width: 100%;
+    rows: 3;
+  }
 
   button {
     background-color: green;
