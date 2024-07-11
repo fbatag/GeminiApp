@@ -186,9 +186,9 @@ def index():
         return donwload_zip_unit_tests()
 
     elif clicked_button == "generate_code_analysis_btn":
-        return proceed("prior_generate_code_analysis", bucket=CODE_BUCKET_NAME)
-    elif clicked_button == "prior_generate_code_analysis":
-        return proceed("generate_code_analysis", bucket=CODE_BUCKET_NAME, blob_list=prior_generate_code_analysis())
+        return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
+    elif clicked_button == "get_blobs_to_analyze":
+        return proceed("generate_code_analysis", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_to_analyze())
     elif clicked_button == "generate_code_analysis":
         return renderIndex(analysisResult = generate_code_analysis())
     
@@ -241,7 +241,6 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
     txt_code_analysis = request.form.get("txt_code_analysis", "")
     if txt_code_analysis == "":
         txt_code_analysis = ANALYSIS_SUGESTIONS[0]
-    print(request.form.get("chk_include_ctx","true"))
     return render_template("proceed.html", 
                            user=get_iap_user(), 
                            activeTab = request.form.get("activeTab", "tabContextGeneration"),
@@ -251,6 +250,7 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
                            choosen_project_tests = request.form.get("projects_u_tests_slc",""),
                            choosen_project_code=request.form.get("projects_code_slc",""),
                            txt_code_analysis = txt_code_analysis,
+                           chk_include_txt_midia=request.form.get("chk_include_txt_midia",""),
                            blob_list=blob_list )
 
 def create_project(new_prj_name):
@@ -531,36 +531,42 @@ def donwload_zip_unit_tests():
     origin = os.path.join(get_temp_user_folder(), "unit_tests.zip")
     return send_file(origin,  as_attachment=True, download_name=filename_to_save)
 
-def prior_generate_code_analysis():
+
+def includeFileInCodeAnalysis(blob, include_txt_midia):
+    file_ext = getCodeFileExtenstion(blob.name)
+    if file_ext in PROG_LANGS:
+        return True
+    if include_txt_midia:
+        return blob.content_type in MEDIA_SUPPORTED_TYPES or file_ext in ("md", "txt")
+    return False
+
+def get_blobs_to_analyze():
+    print("METHOD: get_blobs_to_analyze")
     folder = request.form["projects_code_slc"] + "/"
     blobs = codeBucket.list_blobs(prefix=folder)
     blobsToAnalize = []
+    include_txt_midia = (request.form.get("chk_include_txt_midia","") == "on")
     for blob in blobs:
-        file_ext = getCodeFileExtenstion(blob.name)
-        if file_ext in PROG_LANGS or file_ext in ("md", "txt") or blob.content_type in MEDIA_SUPPORTED_TYPES:
+        if includeFileInCodeAnalysis(blob, include_txt_midia):
             blobsToAnalize.append(blob)
     return blobsToAnalize
 
 def generate_code_analysis():
     print("METHOD: generate_code_analysis")
     model_name = request.form["model_name"]
-    folder = request.form["projects_code_slc"] + "/"
-    blobs = codeBucket.list_blobs(prefix=folder)
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     parts = [request.form["txt_code_analysis"]]
+    blobs = get_blobs_to_analyze()
     msg = "Files in context being considered: \n"
     for blob in blobs:
-        file_ext = getCodeFileExtenstion(blob.name)
-        if file_ext in PROG_LANGS or file_ext in ("md", "txt"):
-            msg +="Adding file -> " + blob.content_type + " - " + blob.name + "\n"
-            uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
-            parts.append(Part.from_uri(uri=uri, mime_type="text/plain"))
-        # referencias: https://ai.google.dev/gemini-api/docs/prompting_with_media?lang=python#image_formats 
-        # https://ai.google.dev/gemini-api/docs/prompting_with_media?lang=python#video_formats
-        elif blob.content_type in MEDIA_SUPPORTED_TYPES:
+        if blob.content_type in MEDIA_SUPPORTED_TYPES:
             msg +="Adding file -> " + blob.name +"\n"
             uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
             parts.append(Part.from_uri(uri=uri, mime_type=blob.content_type))
+        else:
+            msg +="Adding file -> " + blob.content_type + " - " + blob.name + "\n"
+            uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
+            parts.append(Part.from_uri(uri=uri, mime_type="text/plain"))
     print(msg)
     unitTestFiles = model.generate_content(parts)
     return unitTestFiles.text

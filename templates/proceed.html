@@ -20,6 +20,7 @@
         <input type="hidden" name="txt_code_analysis" value="{{ txt_code_analysis }}">
         <input type="hidden" id="clicked_button" name="clicked_button" value="{{target_method}}">
         <input type="hidden" id="chk_include_ctx" name="chk_include_ctx" value="{{chk_include_ctx}}">
+        <input type="hidden" id="chk_include_txt_midia" name="chk_include_txt_midia" value="{{ chk_include_txt_midia }}">
     {% if target_method == "regenerate" %}
         <p style="color: white; font-weight: bold;">Processando a geração usando o "{{ model_name }}" ... AGUARDE ...</p>
     {% endif %}
