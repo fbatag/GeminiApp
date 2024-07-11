@@ -1,7 +1,8 @@
 import os
 import shutil
 import zipfile
-from flask import Flask, render_template, request, session, redirect, url_for, send_file
+from flask import Flask, render_template, request, send_file
+#from flask import session, redirect, url_for
 import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, FinishReason
@@ -9,7 +10,7 @@ import vertexai.preview.generative_models as generative_models
 from google.cloud import vision
 from google.cloud import storage
 from google.appengine.api import memcache, wrap_wsgi_app
-from google.appengine.ext import db, ndb
+#from google.appengine.ext import db, ndb
 
 #PROJECT_ID = os.environ.get("PROJECT_ID")
 REGION = os.environ.get("REGION")
@@ -242,6 +243,7 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
         txt_code_analysis = ANALYSIS_SUGESTIONS[0]
     print(request.form.get("chk_include_ctx","true"))
     return render_template("proceed.html", 
+                           user=get_iap_user(), 
                            activeTab = request.form.get("activeTab", "tabContextGeneration"),
                            target_method=target_method, model_name=request.form.get("model_name",""), 
                            chk_include_ctx=request.form.get("chk_include_ctx","true"),
@@ -358,7 +360,8 @@ def generate():
         # Diferentemente do que eu pensava incialmente, cada mensagem não é estanque:
         # A entrada do passo N+1 inclui os tokens de entrada do passo N+1 mais os passos de saída do passo N
         #tokenConsumptionMessage(usage_metadata, total_token_consumption)
-    return render_template("generate.html", loaded_prompts=loaded_prompts, geminiResponse=geminiResponse, flatResponse=flatResponse, model_name=model_name, 
+    return render_template("generate.html", user=get_iap_user(),
+                           loaded_prompts=loaded_prompts, geminiResponse=geminiResponse, flatResponse=flatResponse, model_name=model_name, 
                            token_consumption=token_consumption, total_token_consumption=token_consumption[-1])
 
 def tokenConsumptionMessage(usage_metadata, token_consumption):

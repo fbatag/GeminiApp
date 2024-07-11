@@ -10,6 +10,7 @@
 
 <body>
     <h1>Processando...</h1>
+    <b style="float: right; text-align: right;">User: {{ user }}</b>
     <form action="/" method="POST" style="display: inline-block;">
         <input type="hidden" name="model_name" value="{{ model_name }}">
         <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
@@ -20,7 +21,7 @@
         <input type="hidden" id="clicked_button" name="clicked_button" value="{{target_method}}">
         <input type="hidden" id="chk_include_ctx" name="chk_include_ctx" value="{{chk_include_ctx}}">
     {% if target_method == "regenerate" %}
-        <p style="color: white; font-weight: bold;">Processando a geração usando o {{ model_name }}... AGUARDE ...</p>
+        <p style="color: white; font-weight: bold;">Processando a geração usando o "{{ model_name }}" ... AGUARDE ...</p>
     {% endif %}
 
     {% if target_method == "loadContextsBucket" %}
@@ -32,11 +33,11 @@
     {% endif %}
 
     {% if target_method == "generateUnitTests" or target_method == "priorGenerateUnitTests" %}
-        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ choosen_project_tests }}"... AGUARDE ....</p>
+        <p style="color: white; font-weight: bold;">Gerando casos de teste unitário para o projeto "{{ choosen_project_tests }}", usando o "{{ model_name }}" ... AGUARDE ....</p>
     {% endif %}
 
     {% if target_method == "generate_code_analysis" %}
-        <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ choosen_project_code }}"... AGUARDE ....</p>
+        <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ choosen_project_code }}", usando o "{{ model_name }}" ... AGUARDE ....</p>
         <br>
         <p style="color: white; font-weight: bold;">PEDIDO: {{ txt_prompt }}</p>
     {% endif %}

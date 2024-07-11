@@ -63,32 +63,30 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
 
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
 
-# LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna) - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
-gcloud services enable compute.googleapis.com
-gcloud compute networks create default --project=$PROJECT_ID --subnet-mode=custom --mtu=1460 --bgp-routing-mode=global
-gcloud compute networks subnets create default --project=$PROJECT_ID --network=default --region=$REGION --range=10.0.0.0/24
-# Proxy-only subnet é uma necessiadae do LBs baseados em Envoy proxy. Assim teoricamente, os INTERNAL e EXTERNAL (não MANAGED) não necessitariam. Mas eu não testei
-# Eles são o Classic (HTTP e TCP) e TCP passthroough - ref: https://cloud.google.com/load-balancing/docs/choosing-load-balancer
-gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID --network=default --region=$REGION --range=10.255.0.0/24 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
+# LOAD BALANCER - EXTERNO - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
+gcloud compute addresses create $SERVICE_NAME--lb-ip --network-tier=PREMIUM --ip-version=IPV4 --global
+export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME--lb-ip --format="get(address)" --global)
 
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
-    --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
+       --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
+gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=EXTERNAL_MANAGED --global
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
-gcloud compute backend-services add-backend $SERVICE_NAME-backend --region=$REGION \
-    --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
-# Cria o frontend (LB) 
-gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend --region=$REGION
+gcloud compute backend-services add-backend $SERVICE_NAME-backend  --global \
+       --network-endpoint-group=$SERVICE_NAME-serverless-neg   --network-endpoint-group-region=$REGION
+# Crie o LB
+gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend 
+# Cria o frontend (LB) HTTP-proxy (NÃO FUNCIONA COM O IAP QUE REQUER HTTPS)
+#gcloud compute target-http-proxies create $SERVICE_NAME-http-proxy  --url-map=$SERVICE_NAME-lb
+#gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule  --address=$LB_IP_NUMBER --global --ports=80 \
+#   --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=EXTERNAL_MANAGED  --network-tier=PREMIUM 
 # Cria o frontend (LB) HTTPS-proxy
-openssl genrsa -out private.key 2048
-openssl req -new -x509 -key private.key -out certificate.crt -days 3650
-gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
-gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
-gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --region=$REGION --ports=443 --network=default --subnet=default \
-   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED \
-   --allow-global-access --address=10.0.0.10
+gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --domains **DOMAIN**
+gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy  --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
+gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --address=$LB_IP_NUMBER --global --ports=443 \
+   --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=EXTERNAL_MANAGED  --network-tier=PREMIUM 
+
 
 # Configurar o IAP para o LB
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
