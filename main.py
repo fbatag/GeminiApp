@@ -176,11 +176,11 @@ def index():
         loadCodeBucketFolders()
 
     elif clicked_button == "generate_unit_tests":
-        return proceed("priorGenerateUnitTests", bucket=CODE_BUCKET_NAME)
-    elif clicked_button == "priorGenerateUnitTests":
-        return proceed("generateUnitTests", bucket=CODE_BUCKET_NAME, blob_list=priorGenerateUnitTests())
+        return proceed("get_blobs_code_unit_test_gen", bucket=CODE_BUCKET_NAME)
+    elif clicked_button == "get_blobs_code_unit_test_gen":
+        return proceed("generateUnitTests", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_unit_test_gen())
     elif clicked_button == "generateUnitTests":
-        return renderIndex(unitTestFiles = generateUnitTests())
+        return renderIndex(unitTestFiles = generateUnitTests(get_blobs_code_unit_test_gen(), request.form["projects_u_tests_slc"], request.form["model_name"]))
     
     elif clicked_button == "donwload_zip_unit_tests":
         return donwload_zip_unit_tests()
@@ -188,9 +188,9 @@ def index():
     elif clicked_button == "generate_code_analysis_btn":
         return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
     elif clicked_button == "get_blobs_to_analyze":
-        return proceed("generate_code_analysis", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_to_analyze())
+        return proceed("generate_code_analysis", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_for_analysis())
     elif clicked_button == "generate_code_analysis":
-        return renderIndex(analysisResult = generate_code_analysis())
+        return renderIndex(analysisResult = generate_code_analysis(get_blobs_code_for_analysis(), request.form["txt_code_analysis"], request.form["model_name"]))
     
     return renderIndex()
 
@@ -482,26 +482,14 @@ def zip_folder(folder_path, output_filename):
                 zip_file.write(file_path, arcname=arcname)
     clearDir(folder_path)
 
-def priorGenerateUnitTests():
-    print("METHOD: priorGenerateUnitTests")
-    folder = request.form["projects_u_tests_slc"] 
-    blobs = codeBucket.list_blobs(prefix=folder + "/")
-    blob_list = []
-    for blob in blobs:
-        if getCodeFileExtenstion(blob.name) in PROG_LANGS:
-            blob_list.append(blob)
-    return blob_list
-
-def generateUnitTests():
+def generateUnitTests(blobs_code_unit_test_gen, folder, model_name):
     print("METHOD: generate_unit_tests")
-    model_name = request.form["model_name"]
-    folder = request.form["projects_u_tests_slc"] 
     unitTestFiles = []
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     temp_user_folder = get_temp_user_folder()
     print("Cleaning temp_user_folder: " + temp_user_folder)
     clearDir(os.path.join(temp_user_folder,folder))
-    for blob in priorGenerateUnitTests():
+    for blob in blobs_code_unit_test_gen:
         uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
         #try:
         prompt = ["Generate unit tests for this code", Part.from_uri(uri=uri, mime_type="text/plain")]
@@ -531,7 +519,6 @@ def donwload_zip_unit_tests():
     origin = os.path.join(get_temp_user_folder(), "unit_tests.zip")
     return send_file(origin,  as_attachment=True, download_name=filename_to_save)
 
-
 def includeFileInCodeAnalysis(blob, include_txt_midia):
     file_ext = getCodeFileExtenstion(blob.name)
     if file_ext in PROG_LANGS:
@@ -540,25 +527,28 @@ def includeFileInCodeAnalysis(blob, include_txt_midia):
         return blob.content_type in MEDIA_SUPPORTED_TYPES or file_ext in ("md", "txt")
     return False
 
-def get_blobs_to_analyze():
+def get_blobs_code_unit_test_gen():
+    print("METHOD: get_blobs_code_unit_test_gen")
+    return get_blobs(request.form["projects_u_tests_slc"], False)
+
+def get_blobs_code_for_analysis():
+    return get_blobs(request.form["projects_code_slc"] + "/", include_txt_midia=request.form.get("chk_include_txt_midia","") == "on")
+
+def get_blobs(folder, include_txt_midia):
     print("METHOD: get_blobs_to_analyze")
-    folder = request.form["projects_code_slc"] + "/"
     blobs = codeBucket.list_blobs(prefix=folder)
     blobsToAnalize = []
-    include_txt_midia = (request.form.get("chk_include_txt_midia","") == "on")
     for blob in blobs:
         if includeFileInCodeAnalysis(blob, include_txt_midia):
             blobsToAnalize.append(blob)
     return blobsToAnalize
 
-def generate_code_analysis():
+def generate_code_analysis(blobs_to_analyze, prompt, model_name):
     print("METHOD: generate_code_analysis")
-    model_name = request.form["model_name"]
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
-    parts = [request.form["txt_code_analysis"]]
-    blobs = get_blobs_to_analyze()
+    parts = [prompt]
     msg = "Files in context being considered: \n"
-    for blob in blobs:
+    for blob in blobs_to_analyze:
         if blob.content_type in MEDIA_SUPPORTED_TYPES:
             msg +="Adding file -> " + blob.name +"\n"
             uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
