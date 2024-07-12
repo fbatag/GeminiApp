@@ -1,113 +1,28 @@
-import os
-from flask import Flask, render_template, request
+from flask import Flask, request, render_template
 #from flask import session, redirect, url_for
-import json
 import vertexai
-from vertexai.generative_models import GenerativeModel, Part, FinishReason
-import vertexai.preview.generative_models as generative_models
-from google.cloud import storage
-from google.appengine.api import memcache, wrap_wsgi_app
+from google.appengine.api import wrap_wsgi_app
+
 #from google.appengine.ext import db, ndb
-from gemapp.utils import donwload_zip_file, save_cli_file
+from gemapp.content_gen import IS_GAE_ENV_STD, CONTEXTS_BUCKET_NAME, load_prompts, loadContextsBucket, get_global_contexts, delete_prompt_step, deleteContext, view_prompts
+from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompts, saveLoadedPrompts, uploadContext, generate, save_results, save_prompts_to_file
+
+from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwload_zip_file
 from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateUnitTests, generate_code_analysis
 
-#PROJECT_ID = os.environ.get("PROJECT_ID")
-REGION = os.environ.get("REGION")
-print(REGION)
-#GAE = os.environ.get("GAE", "TRUE").upper() == "TRUE"
-#GAE_APP_ID = os.environ.get("GAE_APP_ID", "default")
-# Create a Flask app
 print("(RE)LOADING APPLICATION")
 app = Flask(__name__)
-#GAE_APPLICATION = os.getenv('GAE_APPLICATION', "")
-#print("GAE_APPLICATION: " + GAE_APPLICATION)
-#GAE_SERVICE = os.getenv('GAE_SERVICE', "")
-#GOOGLE_CLOUD_PROJECT = os.getenv('GOOGLE_CLOUD_PROJECT', "4ab7c")
-IS_GAE_ENV_STD = os.getenv('GAE_ENV', "") == "standard"
+
 if IS_GAE_ENV_STD:
     app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
-#else:
-#    app.run(host='0.0.0.0', port=8080, mult)
-
-storage_client = storage.Client()
-CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
-print(CONTEXTS_BUCKET_NAME)
-contextsBucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
 
 vertexai.init()
-
-generation_config = {
-    "max_output_tokens": 8192,
-    "temperature": 1,
-    "top_p": 0.95,
-}
-
-safety_settings = {
-    generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-}
-
-# ATENÇÃO: Os parãmetros abaixo somente funcionam com prompt texto. Se um arquivo é incluido, dai erro "400 Request contains an invalid argument." 
-#safety_settings_none = {
- #   #generative_models.HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
-#}
-
-# Inicializa o array para armazenar os dados
-global_loaded_prompts = dict()
-global_contexts = dict()
-FOLDERS =  "!<FOLDERS>!"
 global_code_projects =[]
-PROG_LANGS = ("py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m")
-MEDIA_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg","video/mov","video/avi","video/x-flv","video/mpg","video/webm", "video/wmv","video/3gpp" ]
 
 PROMPT_SUGESTIONS=["", "Crie casos de teste a partir do sistema descrito no video:", "Crie casos de teste a partir do sistema descrito no documento:"]
 ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de código:", 
                      "Gere casos de teste para o sistema composto pelos arquivos a seguir:",
                      "Percorra todos os arquivos de código apresentados e compile a lógica que eles executam. 1. Organize por módulos funcionais; 2.Para cada serviço ou módulo funcional, descreva detalhadamente as tarefas que ele desempenha. 3. Detalhe qual a dependência entre eles e como eles interagem ou não um com o outro."]
-
-def get_iap_user():
-    user = request.headers.get('X-Goog-Authenticated-User-Email', "None")
-    if user != "None":
-        user = user.replace("accounts.google.com:","")
-    return user
-
-def getLoadedPrompts():
-    user = get_iap_user()
-    if user not in global_loaded_prompts:
-        loadedPrompts = []
-        if IS_GAE_ENV_STD:
-            cachedLoadedPrompts = memcache.get(user)
-            if cachedLoadedPrompts is None:
-                #memcache.add(user, db.model_from_protobuf(loadedPrompts), 14400) # four hours expiration
-                memcache.add(user, json.dumps(loadedPrompts), 14400) # four hours expiration
-            else:
-                #loadedPrompts = db.model_from_protobuf(cachedLoadedPrompts)
-                loadedPrompts = json.loads(cachedLoadedPrompts)
-        global_loaded_prompts[user] = loadedPrompts
-    return global_loaded_prompts[user]
-
-def saveLoadedPrompts(loadedPrompts):
-    print("METHOD: saveLoadedPrompts")
-    user = get_iap_user()
-    if IS_GAE_ENV_STD:
-        memcache.set(user, json.dumps(loadedPrompts))
-        #memcache.set(user, db.model_to_protobuf(loadedPrompts))
-    global_loaded_prompts[user] = loadedPrompts
-
-def isPromptRepeated(prompt, project_name, filename):
-    loaded_prompts = getLoadedPrompts()
-    if len(loaded_prompts) > 0:
-        #last_loaded_prompt, last_loaded_filename = loaded_prompts[len(loaded_prompts)-1]
-        last_loaded_prompt, last_project, last_loaded_filename = loaded_prompts[-1]
-        if last_loaded_prompt == prompt and last_project == project_name and filename == last_loaded_filename:
-            return True
-    return False
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -153,15 +68,17 @@ def index():
     elif clicked_button == "regenerate_btn":
         return proceed("regenerate")
     elif clicked_button == "regenerate":
-        return generate()
-    elif clicked_button == "reset":
-        return reset()
-    elif clicked_button == "view":
-        return view()
+        return generate(request.form["model_name"])
+    elif clicked_button == "reset_prompts":
+        saveLoadedPrompts([])
+        print("Contexto limpo!")
+        return renderIndex()
+    elif clicked_button == "view_prompts":
+        return view_prompts()
     elif clicked_button == "save_prompts":
-        return save_prompts()
+        return save_prompts_to_file()
     elif clicked_button == "load_prompts_btn":
-        return load_prompts(request.form["prompt_history_json"])
+        return renderIndex(any_error=load_prompts(request.form["prompt_history_json"]))
     # generate.html buttons
     elif clicked_button == "save_result_btn":
         return save_results()
@@ -175,11 +92,10 @@ def index():
     elif clicked_button == "get_blobs_code_unit_test_gen":
         return proceed("generateUnitTests", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_unit_test_gen())
     elif clicked_button == "generateUnitTests":
-        return renderIndex(unitTestFiles = generateUnitTests(get_iap_user(), get_blobs_code_unit_test_gen(), 
-                                                             request.form["projects_u_tests_slc"], request.form["model_name"]))
+        return renderIndex(unitTestFiles = generateUnitTests(get_blobs_code_unit_test_gen(), request.form["projects_u_tests_slc"], request.form["model_name"]))
     
     elif clicked_button == "donwload_zip_unit_tests":
-        return donwload_zip_file(get_iap_user(), request.form["choosen_project_tests"])
+        return donwload_zip_file(request.form["choosen_project_tests"])
 
     elif clicked_button == "generate_code_analysis_btn":
         return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
@@ -192,8 +108,7 @@ def index():
 
 def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles=[], analysisResult=""):
     print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
-    global global_contexts
-    gc = global_contexts
+    gc = get_global_contexts()
     activeTab = request.form.get("activeTab", "tabContextGeneration")
     print("activeTab: ", activeTab)
     if not FOLDERS in gc:
@@ -214,7 +129,7 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles
     if choosen_project_tests == "" and len(global_code_projects) > 0:
         choosen_project_tests = global_code_projects[0]
     print("choosen_project_tests=" + choosen_project_tests + " - global_code_projects=" + str(global_code_projects))
-    #print("choosen_model_name="+ choosen_model_name +" project=" + project + " projects=" + str(gc[FOLDERS]) + " contexts=" + str(gc[project]))
+
     return render_template(page, user=get_iap_user(), activeTab=activeTab, choosen_model_name=choosen_model_name, 
                         prompt_sugestions=PROMPT_SUGESTIONS,
                         txt_prompt=txt_prompt, 
@@ -249,158 +164,11 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
                            chk_include_txt_midia=request.form.get("chk_include_txt_midia",""),
                            blob_list=blob_list )
 
-def create_project(new_prj_name):
-    print("METHOD: create_project", new_prj_name)
-    blob = contextsBucket.blob(new_prj_name + "/")
-    blob.upload_from_string("")
-    
-def uploadContext(project, file):
-    print("METHOD: uploadContext")
-    if file:
-        # Faz o upload do arquivo para o bucket
-        blob = contextsBucket.blob(project + "/" + file.filename)
-        blob.upload_from_file(file, content_type=file.content_type)
-        #try:
-        #    convertToText(project, file)
-        #except Exception as e:
-        #    print(e)
-
-def deleteContext(folder, filename):
-    print("METHOD: deleteContext")
-    blob = contextsBucket.blob(folder + "/" + filename)    
-    print("Deleting" + folder + "/"   + filename)
-    try:
-        blob.delete()
-    except Exception as e:
-        print(f"Error deleting object '{blob.name}': {e}")
-
-def loadContextsBucket():
-    print("METHOD: loadContextsBucket")
-    global global_contexts
-    global_contexts = getBucketFilesAndFolders(contextsBucket)
-
 def loadCodeBucketFolders():
     print("METHOD: loadCodeBucketFolders")
     global global_code_projects
     global_code_projects = getBucketFilesAndFolders(codeBucket, False)[FOLDERS] 
     
-def getBucketFilesAndFolders(fromBucket, addFiles = True):
-    print("METHOD: getBucketFilesAndFolders: Bucket Name: " + fromBucket.name)
-    if not fromBucket.exists:
-        raise Exception("O bucket "+ fromBucket.name + " não existe. É necessário cria-lo como parte da configuração do App")
-    blobs = fromBucket.list_blobs()
-    gc = dict()
-    projects = []
-    for blob in blobs:
-        # Extract folder name by splitting on '/' and taking everything but the last part
-        parts = blob.name.split('/')
-        if len(parts) > 1:
-            folder_name = parts[0]
-        else:
-            folder_name = "/"  # Root level
-        # Add blob to the corresponding folder list
-        if not folder_name in gc:
-            projects.append(folder_name)
-            gc[folder_name] = []
-        if parts[-1] and addFiles:
-            gc[folder_name].append(parts[-1])
-    gc[FOLDERS]  = projects
-    return gc
-
-def generate():
-    print("METHOD: regenerate")
-    model_name = request.form["model_name"]
-    print("Model: " + model_name)
-    model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
-    chat = model.start_chat()
-    
-    token_consumption = []
-    #total_token_consumption = [0,0,0]
-    loaded_prompts = getLoadedPrompts()
-    geminiResponse = []
-    flatResponse = ""
-    index = 1
-    for promptItem in loaded_prompts:
-        prompt = prepare_prompt(promptItem)
-        try:
-            stepResponse = chat.send_message(prompt)
-            usage_metadata = stepResponse._raw_response.usage_metadata
-            token_consumption.append((usage_metadata.prompt_token_count, usage_metadata.candidates_token_count, usage_metadata.total_token_count))
-            geminiResponse.append(stepResponse.candidates[0].content.parts[0].text)
-            flatResponse += "*** STEP " + str(index) + " ***\n" + stepResponse.candidates[0].content.parts[0].text +"\n\n"
-        except Exception as e:
-            print(e)
-            token_consumption.append((0, 0, 0))
-            geminiResponse.append(str(e))
-            flatResponse += "*** STEP " + str(index) + " ***\n" + str(e) +"\n\n"
-        index += 1
-        # Diferentemente do que eu pensava incialmente, cada mensagem não é estanque:
-        # A entrada do passo N+1 inclui os tokens de entrada do passo N+1 mais os passos de saída do passo N
-        #tokenConsumptionMessage(usage_metadata, total_token_consumption)
-    return render_template("generate.html", user=get_iap_user(),
-                           loaded_prompts=loaded_prompts, geminiResponse=geminiResponse, flatResponse=flatResponse, model_name=model_name, 
-                           token_consumption=token_consumption, total_token_consumption=token_consumption[-1])
-
-def tokenConsumptionMessage(usage_metadata, token_consumption):
-    token_consumption[0] += usage_metadata.prompt_token_count
-    token_consumption[1] += usage_metadata.candidates_token_count
-    token_consumption[2] += usage_metadata.total_token_count
-    return 
-
-def prepare_prompt(promptItem):
-    print("METHOD: prepare_prompt")
-    prompt, project_name, filename = promptItem
-    if filename == "":
-        return prompt
-    uri = "gs://" + CONTEXTS_BUCKET_NAME +"/" + project_name + "/" + filename
-    blob = contextsBucket.get_blob(project_name + "/" + filename)
-    #print("file_type: ", file_type)
-    print(blob)
-    print("prompt: ", prompt, " - uri: ", uri, " - blob.content_type: ", blob.content_type)
-    return [Part.from_uri( uri=uri, mime_type=blob.content_type), prompt]
-    #return [prompt, Part.from_uri( uri=uri, mime_type=file_type)]
-
-def reset():
-    print("METHOD: reset")
-    saveLoadedPrompts([])
-    print("Contexto limpo!")
-    return renderIndex()
-
-def view():
-    print("METHOD: view")
-    prompts = []
-    for promptItem in getLoadedPrompts():
-        prompts.append(prepare_prompt(promptItem))
-    return render_template("view_prompts.html", prompts=prompts)
-
-def load_prompts(prompts_json):
-    print("METHOD: load_prompts")
-    print("Loaded prompt size:" + str(len(prompts_json)))
-    try:
-        saveLoadedPrompts(json.loads(prompts_json))
-        return renderIndex()
-    except Exception as e:
-        saveLoadedPrompts([])
-        return renderIndex(any_error="show_error_json_parser")
-
-def delete_prompt_step(step_num_str):
-    print("METHOD: delete_prompt_step")
-    loaded_prompts = getLoadedPrompts()
-    step_num = int(step_num_str)
-    if step_num <= len(loaded_prompts):
-        print(loaded_prompts[step_num-1])
-        loaded_prompts.remove(loaded_prompts[step_num-1])
-        saveLoadedPrompts(loaded_prompts)
-
-def save_prompts():
-    print("METHOD: save_prompts")
-    loaded_prompts = getLoadedPrompts()
-    return save_cli_file(get_iap_user(), json.dumps(loaded_prompts), request.form["filename_to_save"] , ".json")
-
-def save_results():
-    print("METHOD: save_results")
-    return save_cli_file(get_iap_user(), request.form["geminiResponse"], request.form["filename_to_save"] ,".txt")
-
 def get_blobs_code_unit_test_gen():
     print("METHOD: get_blobs_code_unit_test_gen")
     return get_code_midia_blobs(request.form["projects_u_tests_slc"], False)

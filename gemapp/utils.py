@@ -1,12 +1,45 @@
 import os
 import zipfile
 import shutil
-from flask import send_file
+from flask import send_file, request
 
-def get_temp_user_folder(user, sub_folders=[]):
+FOLDERS =  "!<FOLDERS>!"
+
+def get_iap_user():
+    user = request.headers.get('X-Goog-Authenticated-User-Email', "None")
+    if user != "None":
+        user = user.replace("accounts.google.com:","")
+    return user
+
+def getBucketFilesAndFolders(fromBucket, addFiles = True):
+    print("METHOD: getBucketFilesAndFolders: Bucket Name: " + fromBucket.name)
+    if not fromBucket.exists:
+        raise Exception("O bucket "+ fromBucket.name + " não existe. É necessário cria-lo como parte da configuração do App")
+    blobs = fromBucket.list_blobs()
+    gc = dict()
+    projects = []
+    for blob in blobs:
+        # Extract folder name by splitting on '/' and taking everything but the last part
+        parts = blob.name.split('/')
+        if len(parts) > 1:
+            folder_name = parts[0]
+        else:
+            folder_name = "/"  # Root level
+        # Add blob to the corresponding folder list
+        if not folder_name in gc:
+            projects.append(folder_name)
+            gc[folder_name] = []
+        if parts[-1] and addFiles:
+            gc[folder_name].append(parts[-1])
+    gc[FOLDERS]  = projects
+    return gc
+
+    
+def get_temp_user_folder(sub_folders=[]):
     temp_dir = "/tmp"
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
+    user = get_iap_user()
     temp_user_dir = user.replace("@", "_").replace(".", "_")
     temp_user_dir = os.path.join(temp_dir, temp_user_dir)
     if not os.path.exists(temp_user_dir):
@@ -17,17 +50,17 @@ def get_temp_user_folder(user, sub_folders=[]):
             os.makedirs(temp_user_dir)
     return temp_user_dir
 
-def save_local_file(user, filename_to_save, content, sub_folders=[]):
-    temp_dir = get_temp_user_folder(user, sub_folders)
+def save_local_file(filename_to_save, content, sub_folders=[]):
+    temp_dir = get_temp_user_folder(sub_folders)
     print("METHOD: save_cli_file: dir: " + temp_dir + " - filename: " + filename_to_save)
     tempfile_path = os.path.join(temp_dir, filename_to_save)
     with open(tempfile_path, "w") as f:
         f.write(content)
     return tempfile_path
 
-def save_cli_file(user, content, filename_to_save, ext):
+def save_cli_file(content, filename_to_save, ext):
     print("METHOD: save_local_file: " + ext)
-    tempfile_path = save_local_file(user, "temp.txt", content)
+    tempfile_path = save_local_file("temp.txt", content)
     return send_file(tempfile_path, as_attachment=True, download_name=ensureExtension(filename_to_save,ext))
 
 def zip_folder(folder_path, output_filename):
@@ -41,10 +74,10 @@ def zip_folder(folder_path, output_filename):
                 zip_file.write(file_path, arcname=arcname)
     clearDir(folder_path)
 
-def donwload_zip_file(user, filename_to_save):
+def donwload_zip_file(filename_to_save):
     print("METHOD: index -> donwload_zip_file")
     # vefifica se o nome do rquivo tem a extensão .zio, senão adiciona
-    origin = os.path.join(get_temp_user_folder(user), "unit_tests.zip")
+    origin = os.path.join(get_temp_user_folder(), "unit_tests.zip")
     return send_file(origin,  as_attachment=True, download_name=ensureExtension(filename_to_save, ".zip"))
 
 def clearDir(folder):

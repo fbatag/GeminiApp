@@ -50,11 +50,11 @@ def generate_code_analysis(blobs_to_analyze, prompt, model_name):
     unitTestFiles = model.generate_content(parts)
     return unitTestFiles.text
 
-def generateUnitTests(user, blobs_code_unit_test_gen, folder, model_name):
+def generateUnitTests(blobs_code_unit_test_gen, folder, model_name):
     print("METHOD: generate_unit_tests")
     unitTestFiles = []
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
-    temp_user_folder = get_temp_user_folder(user)
+    temp_user_folder = get_temp_user_folder()
     print("Cleaning temp_user_folder: " + temp_user_folder)
     clearDir(os.path.join(temp_user_folder,folder))
     for blob in blobs_code_unit_test_gen:
@@ -67,7 +67,7 @@ def generateUnitTests(user, blobs_code_unit_test_gen, folder, model_name):
         print("Code: " + blob.name + " - Test: " + test_filename)
         file_tuple = (test_filename, response.text)
         unitTestFiles.append(file_tuple)
-        save_local_file(user, test_filename, response.text, sub_folders[:-1])
+        save_local_file(test_filename, response.text, sub_folders[:-1])
         """except Exception as e:
             print(e)
             file_tuple = ("Error no processamento" , str(e))
