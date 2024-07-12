@@ -1,16 +1,15 @@
 import os
-import shutil
-import zipfile
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request
 #from flask import session, redirect, url_for
 import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, FinishReason
 import vertexai.preview.generative_models as generative_models
-from google.cloud import vision
 from google.cloud import storage
 from google.appengine.api import memcache, wrap_wsgi_app
 #from google.appengine.ext import db, ndb
+from gemapp.utils import donwload_zip_file, save_cli_file
+from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateUnitTests, generate_code_analysis
 
 #PROJECT_ID = os.environ.get("PROJECT_ID")
 REGION = os.environ.get("REGION")
@@ -30,14 +29,10 @@ if IS_GAE_ENV_STD:
 #else:
 #    app.run(host='0.0.0.0', port=8080, mult)
 
-
 storage_client = storage.Client()
 CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
-CODE_BUCKET_NAME = os.environ.get("CODE_BUCKET_NAME", "gen-ai-app-code-") + storage_client.project
 print(CONTEXTS_BUCKET_NAME)
-print(CODE_BUCKET_NAME)
 contextsBucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
-codeBucket  = storage_client.bucket(CODE_BUCKET_NAME, storage_client.project)
 
 vertexai.init()
 
@@ -180,10 +175,11 @@ def index():
     elif clicked_button == "get_blobs_code_unit_test_gen":
         return proceed("generateUnitTests", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_unit_test_gen())
     elif clicked_button == "generateUnitTests":
-        return renderIndex(unitTestFiles = generateUnitTests(get_blobs_code_unit_test_gen(), request.form["projects_u_tests_slc"], request.form["model_name"]))
+        return renderIndex(unitTestFiles = generateUnitTests(get_iap_user(), get_blobs_code_unit_test_gen(), 
+                                                             request.form["projects_u_tests_slc"], request.form["model_name"]))
     
     elif clicked_button == "donwload_zip_unit_tests":
-        return donwload_zip_unit_tests()
+        return donwload_zip_file(get_iap_user(), request.form["choosen_project_tests"])
 
     elif clicked_button == "generate_code_analysis_btn":
         return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
@@ -278,24 +274,6 @@ def deleteContext(folder, filename):
     except Exception as e:
         print(f"Error deleting object '{blob.name}': {e}")
 
-def convertToText(folder, file):
-    if file.content_type != "application/pdf":
-        return
-    print("METHOD: convertToText", folder, file.filename)
-    src_uri = uri=getGsUri(folder, file.filename)
-    dst_uri = uri=getGsUri(folder, file.filename.replace(".pdf", ".txt"))
-    client = vision.ImageAnnotatorClient()
-    feature = vision.Feature(type_=vision.Feature.Type.DOCUMENT_TEXT_DETECTION)
-    gcs_source = vision.GcsSource(uri=src_uri)
-    input_config = vision.InputConfig(gcs_source=gcs_source, mime_type=file.content_type)
-    gcs_destination = vision.GcsDestination(uri=dst_uri)
-    output_config = vision.OutputConfig(gcs_destination=gcs_destination, batch_size=2)
-    async_request = vision.AsyncAnnotateFileRequest(
-       features=[feature], input_config=input_config, output_config=output_config
-    )
-    operation = client.async_batch_annotate_files(requests=[async_request])
-    operation.result(timeout=420)
-
 def loadContextsBucket():
     print("METHOD: loadContextsBucket")
     global global_contexts
@@ -328,7 +306,6 @@ def getBucketFilesAndFolders(fromBucket, addFiles = True):
             gc[folder_name].append(parts[-1])
     gc[FOLDERS]  = projects
     return gc
-
 
 def generate():
     print("METHOD: regenerate")
@@ -370,15 +347,12 @@ def tokenConsumptionMessage(usage_metadata, token_consumption):
     token_consumption[2] += usage_metadata.total_token_count
     return 
 
-def getGsUri(folder, filename):
-    return "gs://" + CONTEXTS_BUCKET_NAME +"/" + folder + "/" + filename
-
 def prepare_prompt(promptItem):
     print("METHOD: prepare_prompt")
     prompt, project_name, filename = promptItem
     if filename == "":
         return prompt
-    uri=getGsUri(project_name, filename)
+    uri = "gs://" + CONTEXTS_BUCKET_NAME +"/" + project_name + "/" + filename
     blob = contextsBucket.get_blob(project_name + "/" + filename)
     #print("file_type: ", file_type)
     print(blob)
@@ -421,146 +395,18 @@ def delete_prompt_step(step_num_str):
 def save_prompts():
     print("METHOD: save_prompts")
     loaded_prompts = getLoadedPrompts()
-    return save_cli_file(json.dumps(loaded_prompts), ".json")
+    return save_cli_file(get_iap_user(), json.dumps(loaded_prompts), request.form["filename_to_save"] , ".json")
 
 def save_results():
     print("METHOD: save_results")
-    return save_cli_file(request.form["geminiResponse"], ".txt")
-
-def save_cli_file(content, ext):
-    print("METHOD: save_local_file: " + ext)
-    filename_to_save = request.form["filename_to_save"] + ext
-    tempfile_path = save_local_file("temp.txt", content)
-    return send_file(tempfile_path, as_attachment=True, download_name=filename_to_save)
-
-def save_local_file(filename_to_save, content, sub_folders=[]):
-    temp_dir = get_temp_user_folder(sub_folders)
-    print("METHOD: save_cli_file: dir: " + temp_dir + " - filename: " + filename_to_save)
-    tempfile_path = os.path.join(temp_dir, filename_to_save)
-    with open(tempfile_path, "w") as f:
-        f.write(content)
-    return tempfile_path
-    
-
-def get_temp_user_folder(sub_folders=[]):
-    temp_dir = "/tmp"
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    temp_user_dir = get_iap_user()
-    temp_user_dir = temp_user_dir.replace("@", "_").replace(".", "_")
-    temp_user_dir = os.path.join(temp_dir, temp_user_dir)
-    if not os.path.exists(temp_user_dir):
-        os.makedirs(temp_user_dir)
-    for sub_folder in sub_folders:
-        temp_user_dir = os.path.join(temp_user_dir, sub_folder)
-        if not os.path.exists(temp_user_dir):
-            os.makedirs(temp_user_dir)
-    return temp_user_dir
-
-def clearDir(folder):
-    print("METHOD: clearDir: " + folder)
-    try:
-        shutil.rmtree(folder)
-        print(f"Folder '{folder}' deleted.")
-    except FileNotFoundError:
-        print(f"Folder '{folder}' not found.")
-    except Exception as e:
-        print(f"Deleting folder '{folder}' failed: {e}")
-
-def getCodeFileExtenstion(filename):
-    parts = filename.split(".")
-    return parts[-1].lower()
-
-def zip_folder(folder_path, output_filename):
-    print("METHOD: zip_folder: folder_path: " + folder_path + " - output_filename: " + output_filename)
-    with zipfile.ZipFile(output_filename, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for root, dirs, files in os.walk(folder_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                # Remove the folder path from the file path to avoid including it in the ZIP file
-                arcname = os.path.relpath(file_path, start=folder_path)
-                zip_file.write(file_path, arcname=arcname)
-    clearDir(folder_path)
-
-def generateUnitTests(blobs_code_unit_test_gen, folder, model_name):
-    print("METHOD: generate_unit_tests")
-    unitTestFiles = []
-    model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
-    temp_user_folder = get_temp_user_folder()
-    print("Cleaning temp_user_folder: " + temp_user_folder)
-    clearDir(os.path.join(temp_user_folder,folder))
-    for blob in blobs_code_unit_test_gen:
-        uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
-        #try:
-        prompt = ["Generate unit tests for this code", Part.from_uri(uri=uri, mime_type="text/plain")]
-        response = model.generate_content(prompt)
-        sub_folders = blob.name.split("/")
-        test_filename = "Test_" + sub_folders[-1]
-        print("Code: " + blob.name + " - Test: " + test_filename)
-        file_tuple = (test_filename, response.text)
-        unitTestFiles.append(file_tuple)
-        save_local_file(test_filename, response.text, sub_folders[:-1])
-        """except Exception as e:
-            print(e)
-            file_tuple = ("Error no processamento" , str(e))
-            unitTestFiles.append(file_tuple)"""
-    #try:
-    print("Zipping the files")
-    zip_folder(os.path.join(temp_user_folder,folder), os.path.join(temp_user_folder, "unit_tests.zip"))
-    """except Exception as e:
-        print(e)
-        file_tuple = ("Error ao zipar os arquivos gerados." , str(e))
-        unitTestFiles.append(file_tuple)"""
-    return unitTestFiles
-
-def donwload_zip_unit_tests():
-    print("METHOD: index -> donwload_zip_unit_tests")
-    filename_to_save = request.form["choosen_project_tests"] + ".zip"
-    origin = os.path.join(get_temp_user_folder(), "unit_tests.zip")
-    return send_file(origin,  as_attachment=True, download_name=filename_to_save)
-
-def includeFileInCodeAnalysis(blob, include_txt_midia):
-    file_ext = getCodeFileExtenstion(blob.name)
-    if file_ext in PROG_LANGS:
-        return True
-    if include_txt_midia:
-        return blob.content_type in MEDIA_SUPPORTED_TYPES or file_ext in ("md", "txt")
-    return False
+    return save_cli_file(get_iap_user(), request.form["geminiResponse"], request.form["filename_to_save"] ,".txt")
 
 def get_blobs_code_unit_test_gen():
     print("METHOD: get_blobs_code_unit_test_gen")
-    return get_blobs(request.form["projects_u_tests_slc"], False)
+    return get_code_midia_blobs(request.form["projects_u_tests_slc"], False)
 
 def get_blobs_code_for_analysis():
-    return get_blobs(request.form["projects_code_slc"] + "/", include_txt_midia=request.form.get("chk_include_txt_midia","") == "on")
-
-def get_blobs(folder, include_txt_midia):
-    print("METHOD: get_blobs_to_analyze")
-    blobs = codeBucket.list_blobs(prefix=folder)
-    blobsToAnalize = []
-    for blob in blobs:
-        if includeFileInCodeAnalysis(blob, include_txt_midia):
-            blobsToAnalize.append(blob)
-    return blobsToAnalize
-
-def generate_code_analysis(blobs_to_analyze, prompt, model_name):
-    print("METHOD: generate_code_analysis")
-    model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
-    parts = [prompt]
-    msg = "Files in context being considered: \n"
-    for blob in blobs_to_analyze:
-        if blob.content_type in MEDIA_SUPPORTED_TYPES:
-            msg +="Adding file -> " + blob.name +"\n"
-            uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
-            parts.append(Part.from_uri(uri=uri, mime_type=blob.content_type))
-        else:
-            msg +="Adding file -> " + blob.content_type + " - " + blob.name + "\n"
-            uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
-            parts.append(Part.from_uri(uri=uri, mime_type="text/plain"))
-    print(msg)
-    unitTestFiles = model.generate_content(parts)
-    return unitTestFiles.text
-
+    return get_code_midia_blobs(request.form["projects_code_slc"] + "/", include_txt_midia=request.form.get("chk_include_txt_midia","") == "on")
 
 if __name__ == "__main__":
     app.run(debug=True)
