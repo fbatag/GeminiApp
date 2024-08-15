@@ -26,15 +26,11 @@ ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de c
                      "Gere casos de teste para o sistema composto pelos arquivos a seguir:",
                      "Percorra todos os arquivos de código apresentados e compile a lógica que eles executam. 1. Organize por módulos funcionais; 2.Para cada serviço ou módulo funcional, descreva detalhadamente as tarefas que ele desempenha. 3. Detalhe qual a dependência entre eles e como eles interagem ou não um com o outro."]
 
-from google.auth.transport import requests
 from google import auth
 credentials, project_id = auth.default()
-if credentials.token is None:
-    # Perform a refresh request to populate the access token of the
-    # current credentials.
-    credentials.refresh(requests.Request())
-from google.oauth2 import service_account
-credentials = service_account.Credentials.from_service_account_file("sa.json")    
+#if get_iap_user() == "None":
+    #from google.oauth2 import service_account
+    #credentials = service_account.Credentials.from_service_account_file("../sa.json")    
 
 @app.route("/getSignedUrl", methods=["GET"])
 def getSignedUrl():
@@ -44,10 +40,20 @@ def getSignedUrl():
     filename = request.args.get("filename")
     content_type = request.args.get("content_type")
     blob = blob = contextsBucket.blob(project + "/" + filename)
-    signeUrl= blob.generate_signed_url(method='PUT', version="v4", content_type=content_type, 
-                                    credentials=credentials,
-                                    headers={"X-Goog-Content-Length-Range": "1,335544320"},
-                                    expiration=datetime.timedelta(minutes=15))   
+    expiration=datetime.timedelta(minutes=15)
+    print("CREDENTIALS")
+    print(credentials.service_account_email)
+    if credentials.token is None:
+        credentials.refresh(auth.transport.requests.Request())
+    print(credentials.token)
+
+    signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
+                                            service_account_email=credentials.service_account_email, access_token=credentials.token,
+                                            headers={"X-Goog-Content-Length-Range": "1,335544320"})
+    
+    #signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
+    #                                credentials=credentials,
+    #                                headers={"X-Goog-Content-Length-Range": "1,335544320"})
     print(signeUrl)
     return signeUrl
 

@@ -91,7 +91,7 @@
             });
         }*/
 
-        async function getSignedUrl(project, file) {
+        async function UploadWithSignedUrl(project, file) {
                 const response = await fetch("/getSignedUrl?" + new URLSearchParams({
                     project: project,
                     filename: file.name,
@@ -103,19 +103,20 @@
                 uploadFileToGCS(signedUrl, file);
         }
 
-        function uploadFileToGCS(signedUrl, file) {
+        async function uploadFileToGCS(signedUrl, file) {
             console.log("OIOIOI");
             console.log(signedUrl);
             console.log("AIAIAIAIA");
             var formData = new FormData();
-                formData.append("file", file);
-                fetch(signedUrl, {
+            formData.append("file", file);
+            await fetch(signedUrl, {
                     method: "PUT",
                     body: formData,
-                    header: "X-Goog-Content-Length-Range: 1,335544320"
-                }).then(function (response) {
-                    console.log(response.text());
+                    //header: "X-Goog-Content-Length-Range: 1,335544320"
+                    header: {'X-Goog-Content-Length-Range': '1,335544320' }
                 });
+            //console.log(response.text);
+            load_Form.submit();
         }
 
         const load_context_file = document.createElement("input");
@@ -130,8 +131,8 @@
                 if (this.files.length > 0) {
                     clicked_button.value = "upload_context_btn";
                     ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
-                    //getSignedUrl(projects_slc.value, this.files[0]);
-                    load_Form.submit();
+                    UploadWithSignedUrl(projects_slc.value, this.files[0]);
+                    //load_Form.submit();
                 }
             });
         // projects_slc doesn't exist if there are no projects

@@ -41,6 +41,15 @@ gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
 --member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role=roles/storage.objectUser --project=$PROJECT_ID
 
+# Para funcionar o upload usando SignedURL
+gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_ID \
+--member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role=roles/storage.admin
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role=roles/iam.serviceAccountTokenCreator
+
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role roles/serviceusage.serviceUsageConsumer
@@ -78,7 +87,6 @@ gcloud storage buckets add-iam-policy-binding gs://staging.$PROJECT_ID.appspot.c
    --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
 gcloud iam service-accounts add-iam-policy-binding gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
     --member=group:$DEPLOY_GROUP --role=roles/iam.serviceAccountUser
-
 
 
 ### Permissão nos buckets - não tem a ver com o redeploy e sim com subir os projetos
