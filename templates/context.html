@@ -131,8 +131,8 @@
                 if (this.files.length > 0) {
                     clicked_button.value = "upload_context_btn";
                     ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
-                    UploadWithSignedUrl(projects_slc.value, this.files[0]);
-                    //load_Form.submit();
+                    //UploadWithSignedUrl(projects_slc.value, this.files[0]);
+                    load_Form.submit();
                 }
             });
         // projects_slc doesn't exist if there are no projects
