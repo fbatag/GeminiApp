@@ -13,6 +13,7 @@
 
 <body>
     <h1>Gerenciar projetos e arquivos de contexto no GCS</h1>
+    <b style="float: right; text-align: right;">User: {{ user }}</b>
     <br>
     <form id="load_Form" method="POST" action="/" enctype="multipart/form-data">
         <input type="hidden" name="model_name" value="{{ model_name }}">
@@ -73,6 +74,50 @@
         const projects_slc = document.getElementById("projects_slc");
         const contexts_lst = document.getElementById("contexts_lst");
 
+        /*function getSignedUrl(project, file) {
+           return new Promise((resolve, reject) => {
+                fetch("/getSignedUrl?" + new URLSearchParams({
+                    project: project,
+                    filename: file.name,
+                    content_type: file.type
+                }).toString(), {
+                    method: "GET"
+                })
+                    .then(function (response) {
+                        console.log(response.text());
+                        resolve(response.text());
+                    })
+                    .catch(reject);
+            });
+        }*/
+
+        async function getSignedUrl(project, file) {
+                const response = await fetch("/getSignedUrl?" + new URLSearchParams({
+                    project: project,
+                    filename: file.name,
+                    content_type: file.type
+                }).toString(), {
+                    method: "GET"
+                })
+                const signedUrl = await response.text();
+                uploadFileToGCS(signedUrl, file);
+        }
+
+        function uploadFileToGCS(signedUrl, file) {
+            console.log("OIOIOI");
+            console.log(signedUrl);
+            console.log("AIAIAIAIA");
+            var formData = new FormData();
+                formData.append("file", file);
+                fetch(signedUrl, {
+                    method: "PUT",
+                    body: formData,
+                    header: "X-Goog-Content-Length-Range: 1,335544320"
+                }).then(function (response) {
+                    console.log(response.text());
+                });
+        }
+
         const load_context_file = document.createElement("input");
         load_context_file.type = "file";
         load_context_file.name = "load_context_file";
@@ -80,14 +125,15 @@
         load_context_file.accept = "text/plain,application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/mpeg,video/mov,video/avi,video/x-flv,video/mpg,video/webm,video/wmv,video/3gpp";
         load_context_file.style.display = "none";
         load_Form.appendChild(load_context_file);
-        load_context_file.addEventListener("change", function () {
-            console.log("OnChange");
-            if (this.files.length > 0) {
-                ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
-                clicked_button.value = "upload_context_btn";
-                load_Form.submit();
-            }
-        });
+            load_context_file.addEventListener("change", function () {
+                console.log("OnChange");
+                if (this.files.length > 0) {
+                    clicked_button.value = "upload_context_btn";
+                    ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
+                    //getSignedUrl(projects_slc.value, this.files[0]);
+                    load_Form.submit();
+                }
+            });
         // projects_slc doesn't exist if there are no projects
         if (projects_slc != null) {
             projects_slc.value = choosen_project.value;

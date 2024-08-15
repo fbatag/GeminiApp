@@ -7,8 +7,8 @@
 </head>
 
 <body>
-    <h1>Modelo: {{ model_name }}</h1>
     <b style="float: right; text-align: right;">User: {{ user }}</b>
+    <h1>Modelo: {{ model_name }}</h1>
     {% for stepResponse in geminiResponse %}
     <h3>Passo {{ loop.index }}</h3>
     <div class="form-list" style="white-space: pre-wrap;">

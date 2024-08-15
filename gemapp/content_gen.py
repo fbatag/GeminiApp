@@ -1,5 +1,4 @@
-import os
-import json
+import os, json
 from flask import request, render_template
 from google.appengine.api import memcache
 from vertexai.generative_models import GenerativeModel, Part
@@ -102,14 +101,12 @@ def isPromptRepeated(prompt, project_name, filename):
 
 def uploadContext(project, file):
     print("METHOD: uploadContext")
-    if file:
-        # Faz o upload do arquivo para o bucket
-        blob = contextsBucket.blob(project + "/" + file.filename)
-        blob.upload_from_file(file, content_type=file.content_type)
-        #try:
-        #    convertToText(project, file)
-        #except Exception as e:
-        #    print(e)
+    if not file:
+        return
+     # Faz o upload do arquivo para o bucket
+    blob = contextsBucket.blob(project + "/" + file.filename)
+    blob.upload_from_file(file, content_type=file.content_type)
+
 
 def create_project(new_prj_name):
     print("METHOD: create_project", new_prj_name)

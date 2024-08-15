@@ -1,3 +1,4 @@
+import datetime
 from flask import Flask, request, render_template
 #from flask import session, redirect, url_for
 import vertexai
@@ -5,7 +6,8 @@ from google.appengine.api import wrap_wsgi_app
 
 #from google.appengine.ext import db, ndb
 from gemapp.content_gen import IS_GAE_ENV_STD, CONTEXTS_BUCKET_NAME, load_prompts, loadContextsBucket, get_global_contexts, delete_prompt_step, deleteContext, view_prompts
-from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompts, saveLoadedPrompts, uploadContext, generate, save_results, save_prompts_to_file
+from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompts, saveLoadedPrompts, generate, save_results, save_prompts_to_file
+from gemapp.content_gen import uploadContext, contextsBucket
 
 from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwload_zip_file
 from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateUnitTests, generate_code_analysis
@@ -23,6 +25,32 @@ PROMPT_SUGESTIONS=["", "Crie casos de teste a partir do sistema descrito no vide
 ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de código:", 
                      "Gere casos de teste para o sistema composto pelos arquivos a seguir:",
                      "Percorra todos os arquivos de código apresentados e compile a lógica que eles executam. 1. Organize por módulos funcionais; 2.Para cada serviço ou módulo funcional, descreva detalhadamente as tarefas que ele desempenha. 3. Detalhe qual a dependência entre eles e como eles interagem ou não um com o outro."]
+
+from google.auth.transport import requests
+from google import auth
+credentials, project_id = auth.default()
+if credentials.token is None:
+    # Perform a refresh request to populate the access token of the
+    # current credentials.
+    credentials.refresh(requests.Request())
+from google.oauth2 import service_account
+credentials = service_account.Credentials.from_service_account_file("sa.json")    
+
+@app.route("/getSignedUrl", methods=["GET"])
+def getSignedUrl():
+    print("METHOD: getSignedUrl")
+    print(request.args)
+    project = request.args.get("project")
+    filename = request.args.get("filename")
+    content_type = request.args.get("content_type")
+    blob = blob = contextsBucket.blob(project + "/" + filename)
+    signeUrl= blob.generate_signed_url(method='PUT', version="v4", content_type=content_type, 
+                                    credentials=credentials,
+                                    headers={"X-Goog-Content-Length-Range": "1,335544320"},
+                                    expiration=datetime.timedelta(minutes=15))   
+    print(signeUrl)
+    return signeUrl
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -54,6 +82,7 @@ def index():
     elif clicked_button == "manage_contexts_btn":
         return renderIndex("context.html")
     elif clicked_button == "upload_context_btn":
+        #print("MAX_CONTENT_LENGTH: " + str(app.config['MAX_CONTENT_LENGTH']))
         uploadContext(request.form["projects_slc"],request.files["load_context_file"])
         loadContextsBucket()
         return renderIndex("context.html")

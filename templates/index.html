@@ -429,8 +429,16 @@
 
 {% if any_error == "show_error_json_parser" %}
 <script>
-    alert("Error ao parsear o json. Confirme o formato!");
+    alert("Erro ao parsear o json. Confirme o formato!");
 </script>
 {% endif %}
+
+
+{% if any_error == "blob_file_upload_fail" %}
+<script>
+    alert("Erro ao subir o arquivo para o GCS!");
+</script>
+{% endif %}
+
 
 </html>

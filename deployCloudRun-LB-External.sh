@@ -14,9 +14,13 @@ gcloud services enable iap.googleapis.com
 
 gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
+gcloud storage buckets update gs://gen-ai-app-contexts-$PROJECT_ID --cors-file=bucket-cors.json
+# Verirficar se acatou
+gcloud storage buckets describe gs://gen-ai-app-contexts-$PROJECT_ID --format="default(cors_config)"
 
 gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-code-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-code-$PROJECT_ID
+gcloud storage buckets update gs://gen-ai-app-code-$PROJECT_ID --cors-file=bucket-cors.json
 
 gcloud iam service-accounts create gemini-app-sa \
 --display-name "Gemini App Generator Service Account" \

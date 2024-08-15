@@ -15,9 +15,15 @@ gcloud services enable iap.googleapis.com
 
 gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
+gcloud storage buckets update gs://gen-ai-app-contexts-$PROJECT_ID --cors-file=bucket-cors.json
+# Verirficar se acatou
+gcloud storage buckets describe gs://gen-ai-app-contexts-$PROJECT_ID --format="default(cors_config)"
 
 gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-code-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-code-$PROJECT_ID
+gcloud storage buckets update gs://gen-ai-app-code-$PROJECT_ID --cors-file=bucket-cors.json
+
+
 
 gcloud iam service-accounts create gemini-app-sa \
 --display-name "Gemini App Generator Service Account" \
@@ -94,8 +100,8 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 
 #deploy em Cloud Run (não é necessário yaml)
-export SERVICE_NAME=gemini-app-ui
 gcloud services enable run.googleapis.com
+export SERVICE_NAME=gemini-app-ui
 # primeiro deploy
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=60m \
    --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
