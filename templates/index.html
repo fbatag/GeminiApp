@@ -18,9 +18,9 @@
                 <option value="gemini-1.5-pro-001">Gemini-1.5-pro-001</option>
                 <option value="gemini-experimental">Gemini-experimental</option>
                 <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
-                <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
             </select>
-            <b style="float: right; text-align: right;">User: {{ user }}</b>
+            <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
+            <b style="float: right; text-align: right;">{{ user_version_info }}</b>
         </div>
         <br>
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">

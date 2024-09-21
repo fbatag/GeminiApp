@@ -28,9 +28,11 @@ ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de c
 
 from google import auth
 credentials, project_id = auth.default()
-#if get_iap_user() == "None":
-    #from google.oauth2 import service_account
-    #credentials = service_account.Credentials.from_service_account_file("../sa.json")    
+from google.oauth2 import service_account
+
+def get_user_version_info():
+    return "User: " + get_iap_user() + " -  Version: 1.0.0" 
+    return
 
 @app.route("/getSignedUrl", methods=["GET"])
 def getSignedUrl():
@@ -39,21 +41,33 @@ def getSignedUrl():
     project = request.args.get("project")
     filename = request.args.get("filename")
     content_type = request.args.get("content_type")
+    return getSignedUrlParam(project, filename, content_type)
+
+def getSignedUrlParam(project, filename, content_type):
     blob = blob = contextsBucket.blob(project + "/" + filename)
     expiration=datetime.timedelta(minutes=15)
-    print("CREDENTIALS")
-    print(credentials.service_account_email)
-    if credentials.token is None:
-        credentials.refresh(auth.transport.requests.Request())
-    print(credentials.token)
 
-    signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
+    if request.url_root == 'http://127.0.0.1:5000/':
+        print("RUNNING LOCAL")
+        signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
+                                    credentials=service_account.Credentials.from_service_account_file("../sa.json"),
+                                    headers={"X-Goog-Content-Length-Range": "1,335544320", 'Content-Type': content_type })
+    else:
+        print("CREDENTIALS")
+        print(credentials.service_account_email)
+        if credentials.token is None:
+            credentials.refresh(auth.transport.requests.Request())
+        print(credentials.token)
+        try:
+            signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
                                             service_account_email=credentials.service_account_email, access_token=credentials.token,
-                                            headers={"X-Goog-Content-Length-Range": "1,335544320"})
+                                            headers={"X-Goog-Content-Length-Range": "1,335544320", 'Content-Type': content_type })
+        except Exception as e:
+            print("ERROR ERROR ERROR")
+            print(e)
+            return str(e)
+
     
-    #signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
-    #                                credentials=credentials,
-    #                                headers={"X-Goog-Content-Length-Range": "1,335544320"})
     print(signeUrl)
     return signeUrl
 
@@ -89,7 +103,9 @@ def index():
         return renderIndex("context.html")
     elif clicked_button == "upload_context_btn":
         #print("MAX_CONTENT_LENGTH: " + str(app.config['MAX_CONTENT_LENGTH']))
-        uploadContext(request.form["projects_slc"],request.files["load_context_file"])
+        #uploadContext(request.form["projects_slc"],request.files["load_context_file"])
+        #getSignedUrlParam("TESTE", "teste.txt", "text/plain")
+        #print("SUCESSO")
         loadContextsBucket()
         return renderIndex("context.html")
     elif clicked_button == "delete_context_btn":
@@ -165,7 +181,7 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles
         choosen_project_tests = global_code_projects[0]
     print("choosen_project_tests=" + choosen_project_tests + " - global_code_projects=" + str(global_code_projects))
 
-    return render_template(page, user=get_iap_user(), activeTab=activeTab, choosen_model_name=choosen_model_name, 
+    return render_template(page, user_version_info=get_user_version_info(), activeTab=activeTab, choosen_model_name=choosen_model_name, 
                         prompt_sugestions=PROMPT_SUGESTIONS,
                         txt_prompt=txt_prompt, 
                         chk_include_ctx=request.form.get("chk_include_ctx","true"),
@@ -188,7 +204,7 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
     if txt_code_analysis == "":
         txt_code_analysis = ANALYSIS_SUGESTIONS[0]
     return render_template("proceed.html", 
-                           user=get_iap_user(), 
+                           user_version_info=get_user_version_info(), 
                            activeTab = request.form.get("activeTab", "tabContextGeneration"),
                            target_method=target_method, model_name=request.form.get("model_name",""), 
                            chk_include_ctx=request.form.get("chk_include_ctx","true"),

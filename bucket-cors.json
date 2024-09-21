@@ -1,8 +1,10 @@
 [
     {
       "origin": ["*"],
-      "method": ["*"],
-      "responseHeader": ["Content-Type"],
+      "method": ["PUT"],
+      "responseHeader": ["Content-Type", "host", "X-Goog-Content-Length-Range" ], 
       "maxAgeSeconds": 3600
     }
 ]
+
+

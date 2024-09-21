@@ -10,7 +10,7 @@
 
 <body>
     <h1>Processando...</h1>
-    <b style="float: right; text-align: right;">User: {{ user }}</b>
+    <b style="float: right; text-align: right;">{{ user_version_info }}</b>
     <form action="/" method="POST" style="display: inline-block;">
         <input type="hidden" name="model_name" value="{{ model_name }}">
         <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">

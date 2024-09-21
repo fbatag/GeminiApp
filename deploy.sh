@@ -117,6 +117,9 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
 # deploys seguintes (omitir o service account)
 # --cpu-throttling (CPU not allways allocated) and -no-allow-unauthenticated are default
 
+# Deploy de teste
+gcloud run deploy gemini-app-ui-test  --region=us-central1 --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 \
+--timeout=60m  --project=$PROJECT_ID --allow-unauthenticated  --cpu-throttling --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com
 
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
 

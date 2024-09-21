@@ -7,7 +7,7 @@
 </head>
 
 <body>
-    <b style="float: right; text-align: right;">User: {{ user }}</b>
+    <b style="float: right; text-align: right;">{{ user_version_info }}</b>
     <h1>Modelo: {{ model_name }}</h1>
     {% for stepResponse in geminiResponse %}
     <h3>Passo {{ loop.index }}</h3>
