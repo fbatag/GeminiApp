@@ -31,7 +31,7 @@ credentials, project_id = auth.default()
 from google.oauth2 import service_account
 
 def get_user_version_info():
-    return "User: " + get_iap_user() + " -  Version: 1.0.0" 
+    return "User: " + get_iap_user() + " -  Version: 1.0.1" 
     return
 
 @app.route("/getSignedUrl", methods=["GET"])
@@ -47,11 +47,12 @@ def getSignedUrlParam(project, filename, content_type):
     blob = blob = contextsBucket.blob(project + "/" + filename)
     expiration=datetime.timedelta(minutes=15)
 
+    print('Content-Type: '+  content_type )
     if request.url_root == 'http://127.0.0.1:5000/':
         print("RUNNING LOCAL")
         signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
                                     credentials=service_account.Credentials.from_service_account_file("../sa.json"),
-                                    headers={"X-Goog-Content-Length-Range": "1,335544320", 'Content-Type': content_type })
+                                    headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': content_type })
     else:
         print("CREDENTIALS")
         print(credentials.service_account_email)
@@ -61,7 +62,7 @@ def getSignedUrlParam(project, filename, content_type):
         try:
             signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
                                             service_account_email=credentials.service_account_email, access_token=credentials.token,
-                                            headers={"X-Goog-Content-Length-Range": "1,335544320", 'Content-Type': content_type })
+                                            headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': content_type })
         except Exception as e:
             print("ERROR ERROR ERROR")
             print(e)

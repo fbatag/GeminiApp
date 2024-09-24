@@ -70,6 +70,7 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
 # LOAD BALANCER - EXTERNO - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
 gcloud compute addresses create $SERVICE_NAME--lb-ip --network-tier=PREMIUM --ip-version=IPV4 --global
 export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME--lb-ip --format="get(address)" --global)
+echo $LB_IP_NUMBER
 
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
@@ -97,7 +98,7 @@ export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumbe
 echo $PROJECT_NUMBER
 gcloud beta services identity create --service=iap.googleapis.com --project=$PROJECT_ID
 gcloud run services add-iam-policy-binding $SERVICE_NAME --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com  \
---role='roles/run.invoker' 
+--role='roles/run.invoker' --region $REGION
 
 gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SUPPORT_EMAIL
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp

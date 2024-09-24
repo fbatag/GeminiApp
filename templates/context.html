@@ -88,20 +88,48 @@
         }
 
         async function uploadFileToGCS(signedUrl, file) {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", signedUrl, true);
+            xhr.onload = () => {
+                const status = xhr.status;
+                if (status === 200) {
+                    alert("Arquivo carregado com sucesso!");
+                } else {
+                    alert("Algo deu errado! Status: " + xhr.status.toString());
+                }
+                fileElem = document.getElementById('load_context_file');
+                if (fileElem != null) 
+                {
+                    //alert('** REMOVENDO ** fileElem')
+                    fileElem.remove();
+                }
+                load_Form.submit();
+            };
+            xhr.onerror = (event) => {
+                alert("Algo deu errado! Erro: " + event.toString());
+            };
+            xhr.setRequestHeader('Content-Type', file.type);
+            xhr.setRequestHeader('X-Goog-Content-Length-Range', '1,5000000000'); 
+            
+            xhr.send(file);
+        }
+
+        async function uploadFileToGCS_didntWork(signedUrl, file) {
             //console.log("OIOIOI");
             //console.log(signedUrl);
-            //console.log("AIAIAIAIA");
+            //console.log('Content-Type: ' + file.type );
             var formData = new FormData();
             formData.append("file", file);
-            await fetch(signedUrl, {
+            response = await fetch(signedUrl, {
                     method: "PUT",
                     body: formData,
                     headers: {
-                        'X-Goog-Content-Length-Range': '1,335544320',
+                        'X-Goog-Content-Length-Range': '1,5000000000',
                         'Content-Type': file.type  }
                 });
-            //console.log(response.text);
-            load_Form.submit();
+            //const text = await response.text();
+            //console.log("Response: " + text.toString());
+            //load_Form.submit();
         }
 
         const load_context_file = document.createElement("input");
@@ -112,7 +140,7 @@
         load_context_file.style.display = "none";
         load_Form.appendChild(load_context_file);
         load_context_file.addEventListener("change", function () {
-            console.log("OnChange");
+            //console.log("OnChange");
             if (this.files.length > 0) {
                 clicked_button.value = "upload_context_btn";
                 ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
@@ -124,7 +152,7 @@
         if (projects_slc != null) {
             projects_slc.value = choosen_project.value;
             projects_slc.addEventListener("change", function () {
-                console.log("projects_slc");
+                //console.log("projects_slc");
                 if (choosen_project.value == this.value) return;
                 choosen_project.value == this.value;
                 clicked_button.value = "manage_contexts_btn";

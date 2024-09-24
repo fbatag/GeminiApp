@@ -99,7 +99,7 @@ export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumbe
 echo $PROJECT_NUMBER
 gcloud beta services identity create --service=iap.googleapis.com --project=$PROJECT_ID
 gcloud run services add-iam-policy-binding $SERVICE_NAME --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com  \
---role='roles/run.invoker' 
+--role='roles/run.invoker' --region $REGION
 
 gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SUPPORT_EMAIL
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp
