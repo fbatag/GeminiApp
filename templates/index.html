@@ -14,8 +14,8 @@
         <div>
             <label style="color: white; font-weight: bold;" for="model_name">Modelo:</label>&nbsp;&nbsp;
             <select name="model_name">
-                <option value="gemini-1.5-flash-001">Gemini-1.5-flash-001</option>
-                <option value="gemini-1.5-pro-001">Gemini-1.5-pro-001</option>
+                <option value="gemini-1.5-flash-002">Gemini-1.5-flash-002</option>
+                <option value="gemini-1.5-pro-002">Gemini-1.5-pro-002</option>
                 <option value="gemini-experimental">Gemini-experimental</option>
                 <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
             </select>
@@ -154,6 +154,8 @@
                     faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
                 </p>
                 <br>
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
+                </button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 {% else %}
                 <label for="projects_u_tests_slc">Projeto:</label>
@@ -162,6 +164,8 @@
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
                 </select></select>&nbsp;&nbsp;&nbsp;               
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
+                </button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 <br><br>
                 <button type="submit" name="generate_unit_tests" class="btn-generate-style">Gerar </button>
@@ -189,6 +193,8 @@
                     faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
                 </p>
                 <br>
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
+                </button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 {% else %}
                 <label for="projects_code_slc">Projeto:</label>
@@ -197,6 +203,8 @@
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
                 </select></select>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
+                </button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 <br><br>
                 <label for="analysis_sugestions_slc">Sugestões:</label>
@@ -224,8 +232,30 @@
         </div>
     </form>
 
+    <script src="{{ url_for('static', filename='upload.js') }}"></script>
     <script>
         const form = document.querySelector("form");
+        
+        const codeProjectFolderSelect = document.createElement('input');
+        codeProjectFolderSelect.style.display = "none";
+        codeProjectFolderSelect.type = 'file';
+        codeProjectFolderSelect.webkitdirectory = true; 
+        codeProjectFolderSelect.directory = true;
+        
+        codeProjectFolderSelect.addEventListener("change", function () {
+            if (codeProjectFolderSelect.files.length > 0) {
+            const pasta = codeProjectFolderSelect.files[0].webkitRelativePath.split('/')[0];
+                console.log("Pasta selecionada:", pasta);
+                for (const fileElem of codeProjectFolderSelect.files) {
+                    // Acesse as propriedades do arquivo, como nome, tamanho, tipo, etc.
+                    console.log("Nome do arquivo:", fileElem.name);
+                    console.log("Tamanho do arquivo:", fileElem.size);
+                    console.log("Tipo do arquivo:", fileElem.type);
+                }
+            } else {
+                console.log("Nenhuma pasta selecionada.");
+            }
+        });
 
         const prompt_sugestions_slc = document.getElementById("prompt_sugestions_slc");
         const txt_prompt = document.getElementById("txt_prompt");
@@ -344,8 +374,13 @@
                 }
                 document.getElementById("filename_to_save").value = filename.trim();
             }
+            else if (clicked_button.value == "add_code_project_btn") {
+                codeProjectFolderSelect.click();
+                return;
+            }
             this.submit();
         });
+
 
 
         const txt_code_analysis = document.getElementById("txt_code_analysis");
@@ -356,7 +391,7 @@
             });        
         }
 
-        // seleciuonar o tab ativo
+        // selecionar o tab ativo
         const tabs = document.querySelectorAll('.tab');
         // Get all content elements
         const contents = document.querySelectorAll('.content');
