@@ -38,21 +38,23 @@ def get_user_version_info():
 def getSignedUrl():
     print("METHOD: getSignedUrl")
     print(request.args)
-    project = request.args.get("project")
-    filename = request.args.get("filename")
-    content_type = request.args.get("content_type")
-    return getSignedUrlParam(project, filename, content_type)
+    dest_bucket = request.args.get("dest_bucket")
+    filepath = request.args.get("filepath")
+    filetype = request.args.get("filetype")
+    if dest_bucket == "code":
+        return getSignedUrlParam(codeBucket, filepath, filetype)
+    return getSignedUrlParam(contextsBucket, filepath, filetype)
 
-def getSignedUrlParam(project, filename, content_type):
-    blob = blob = contextsBucket.blob(project + "/" + filename)
+def getSignedUrlParam(dest_bucket, filepath, filetype):
+    blob = dest_bucket.blob(filepath)
     expiration=datetime.timedelta(minutes=15)
 
-    print('Content-Type: '+  content_type )
+    print('Content-Type: '+  filetype)
     if request.url_root == 'http://127.0.0.1:5000/':
         print("RUNNING LOCAL")
-        signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
+        signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=filetype, 
                                     credentials=service_account.Credentials.from_service_account_file("../sa.json"),
-                                    headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': content_type })
+                                    headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': filetype})
     else:
         print("CREDENTIALS")
         print(credentials.service_account_email)
@@ -60,16 +62,14 @@ def getSignedUrlParam(project, filename, content_type):
             credentials.refresh(auth.transport.requests.Request())
         print(credentials.token)
         try:
-            signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=content_type, 
+            signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=filetype, 
                                             service_account_email=credentials.service_account_email, access_token=credentials.token,
-                                            headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': content_type })
+                                            headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': filetype})
         except Exception as e:
             print("ERROR ERROR ERROR")
             print(e)
             return str(e)
-
-    
-    print(signeUrl)
+    #print(signeUrl)
     return signeUrl
 
 
@@ -165,7 +165,7 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles
     print("activeTab: ", activeTab)
     if not FOLDERS in gc:
         return proceed("loadContextsBucket")
-    choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-preview-0514")
+    choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-002")
     txt_prompt = ""
     if keep_prompt:
         txt_prompt = request.form.get("txt_prompt", "")

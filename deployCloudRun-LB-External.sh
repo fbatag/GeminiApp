@@ -12,15 +12,15 @@ gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
 gcloud services enable iap.googleapis.com 
 #gcloud services enable vision.googleapis.com # para covnersão de pdf em texto - não usado atualmente
 
-gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-contexts-$PROJECT_ID
+gsutil mb -b on -l $REGION gs://gen-ai-app-contexts-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-contexts-$PROJECT_ID
 gcloud storage buckets update gs://gen-ai-app-contexts-$PROJECT_ID --cors-file=bucket-cors.json
-# Verirficar se acatou
-gcloud storage buckets describe gs://gen-ai-app-contexts-$PROJECT_ID --format="default(cors_config)"
+gcloud storage buckets describe gs://gen-ai-app-contexts-$PROJECT_ID --format="default(cors_config)" # Verirficar se acatou
 
-gsutil mb -b on -l southamerica-east1 gs://gen-ai-app-code-$PROJECT_ID
+gsutil mb -b on -l $REGION gs://gen-ai-app-code-$PROJECT_ID
 gsutil lifecycle set bucket_lifecycle.json gs://gen-ai-app-code-$PROJECT_ID
 gcloud storage buckets update gs://gen-ai-app-code-$PROJECT_ID --cors-file=bucket-cors.json
+gcloud storage buckets describe gs://gen-ai-app-code-$PROJECT_ID --format="default(cors_config)" # Verirficar se acatou
 
 gcloud iam service-accounts create gemini-app-sa \
 --display-name "Gemini App Generator Service Account" \

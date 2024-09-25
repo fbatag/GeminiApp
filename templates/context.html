@@ -84,12 +84,20 @@
         load_context_file.style.display = "none";
         load_Form.appendChild(load_context_file);
         load_context_file.addEventListener("change", function () {
-            //console.log("OnChange");
             if (this.files.length > 0) {
+                console.log(load_context_file.files[0]);
                 clicked_button.value = "upload_context_btn";
                 ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
-                UploadWithSignedUrl(projects_slc.value, this.files[0]);
-                //load_Form.submit();
+                UploadWithSignedUrl("context", projects_slc.value, this.files[0], (error, response) => {
+                    if (error)
+                        alert(response + error.toString());
+                    fileElem = document.getElementById('load_context_file');
+                    if (fileElem != null) {
+                        //alert('** REMOVENDO ** fileElem')
+                        fileElem.remove();
+                    }
+                    load_Form.submit();
+                });
             }
         });
         // projects_slc doesn't exist if there are no projects

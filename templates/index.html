@@ -17,7 +17,6 @@
                 <option value="gemini-1.5-flash-002">Gemini-1.5-flash-002</option>
                 <option value="gemini-1.5-pro-002">Gemini-1.5-pro-002</option>
                 <option value="gemini-experimental">Gemini-experimental</option>
-                <option value="gemini-1.0-pro-002">Gemini-1.0-pro-002</option>
             </select>
             <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
             <b style="float: right; text-align: right;">{{ user_version_info }}</b>
@@ -232,10 +231,15 @@
         </div>
     </form>
 
+    <div id="loading_message_area" class="form-list" style="white-space: pre-wrap;">
+
+    </div>
     <script src="{{ url_for('static', filename='upload.js') }}"></script>
     <script>
         const form = document.querySelector("form");
         
+        const loading_message_area = document.getElementById("loading_message_area");
+        loading_message_area.style.display = "none";
         const codeProjectFolderSelect = document.createElement('input');
         codeProjectFolderSelect.style.display = "none";
         codeProjectFolderSelect.type = 'file';
@@ -244,13 +248,20 @@
         
         codeProjectFolderSelect.addEventListener("change", function () {
             if (codeProjectFolderSelect.files.length > 0) {
-            const pasta = codeProjectFolderSelect.files[0].webkitRelativePath.split('/')[0];
-                console.log("Pasta selecionada:", pasta);
+                form.style.display = "none";
+                loading_message_area.style.display = "block";
                 for (const fileElem of codeProjectFolderSelect.files) {
-                    // Acesse as propriedades do arquivo, como nome, tamanho, tipo, etc.
-                    console.log("Nome do arquivo:", fileElem.name);
-                    console.log("Tamanho do arquivo:", fileElem.size);
-                    console.log("Tipo do arquivo:", fileElem.type);
+
+                    loading_message_area.textContent += "Carregando: " + fileElem.webkitRelativePath + "/n";
+                    UploadWithSignedUrl("code", null, fileElem, (error, response) => {
+                        if (error)
+                            alert(response + error.toString());
+                        else {
+                            console.log("Path:", fileElem.webkitRelativePath);
+                            loading_message_area.textContent += "Pronto: " + fileElem.webkitRelativePath + "/n";
+                            //load_Form.submit();
+                        }
+                    });
                 }
             } else {
                 console.log("Nenhuma pasta selecionada.");
