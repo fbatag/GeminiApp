@@ -109,6 +109,17 @@ body {
     width: 180px;
   }
   
+  .btn-clear-style-int {
+    background-color:goldenrod;
+    color: white;
+    padding: 5px 10px;
+    border: none;
+    border: 2px solid darkgoldenrod;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 180px;
+  }
+
   .btn-generate-style {
     background-color: red;
     color: white;

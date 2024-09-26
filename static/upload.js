@@ -3,11 +3,10 @@ function UploadWithSignedUrl(dest_bucket, project, file, callback) {
         filepath = project + "/" + file.name;
     else
         filepath = file.webkitRelativePath;
-    getSignedUrl(dest_bucket, filepath, file.type, (error, response) => {
+    getSignedUrl(dest_bucket, filepath, file.type, (error, signedUrl) => {
         if (error) {
-            callback(error, response);
+            callback(error);
           } else {
-            let signedUrl = response;
             //console.log("URL assinada:", signedUrl);
             uploadFileToGCS(signedUrl, file, callback);
           }
@@ -27,11 +26,11 @@ function getSignedUrl(dest_bucket, filepath, filetype, callback) {
         if (xhr.status === 200) {
             callback(null, xhr.responseText);
         } else {
-            callback(xhr.status, "Erro ao tentar obter a URL assinada - ");
+            callback(xhr.status + ": Erro ao tentar obter a URL assinada para o arquivo: " + filepath, null);
         }
     };
-    xhr.onerror = function () {
-        callback(xhr.status, null);
+    xhr.onerror = function (event) {
+        callback(event.toString() + ": Erro (onerror) ao tentar obter a URL assinada para o arquivo: " + filepath, null);
     };
     xhr.send();
 }
@@ -39,16 +38,17 @@ function getSignedUrl(dest_bucket, filepath, filetype, callback) {
 function uploadFileToGCS(signedUrl, file, callback) {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", signedUrl, true);
+    let filepath = file.webkitRelativePath;
     xhr.onload = () => {
         const status = xhr.status;
         if (status === 200) {
-            callback(null, null)
+            callback(null)
         } else {
-            callback(xhr.status,  "Erro no upload do arquivo - ");
+            callback(xhr.status + ": Erro no upload do arquivo: " + filepath);
         }
     };
     xhr.onerror = (event) => {
-        callback(event, "Erro no upload do arquivo (onerror)- ")
+        callback(event.toString() + ": Erro (onerror) no upload do arquivo: " + filepath);
     };
     xhr.setRequestHeader('Content-Type', file.type);
     xhr.setRequestHeader('X-Goog-Content-Length-Range', '1,5000000000');

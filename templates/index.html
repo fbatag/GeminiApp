@@ -153,8 +153,8 @@
                     faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
                 </p>
                 <br>
-                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
-                </button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
+                &nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 {% else %}
                 <label for="projects_u_tests_slc">Projeto:</label>
@@ -163,9 +163,11 @@
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
                 </select></select>&nbsp;&nbsp;&nbsp;               
-                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
-                </button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
+                &nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
+                &nbsp;&nbsp;&nbsp;
+                <button type="submit" name="exclude_code_files_btn" class="btn-clear-style-int">Excluir o projeto</button>
                 <br><br>
                 <button type="submit" name="generate_unit_tests" class="btn-generate-style">Gerar </button>
                 {% endif %}
@@ -192,8 +194,8 @@
                     faça o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}
                 </p>
                 <br>
-                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
-                </button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
+                &nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 {% else %}
                 <label for="projects_code_slc">Projeto:</label>
@@ -202,9 +204,11 @@
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
                 </select></select>&nbsp;&nbsp;&nbsp;
-                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto
-                </button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
+                &nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
+                &nbsp;&nbsp;&nbsp;
+                <button type="submit" name="exclude_code_files_btn" class="btn-clear-style-int">Excluir o projeto</button>
                 <br><br>
                 <label for="analysis_sugestions_slc">Sugestões:</label>
                 <select name="analysis_sugestions_slc" id="analysis_sugestions_slc">
@@ -250,16 +254,27 @@
             if (codeProjectFolderSelect.files.length > 0) {
                 form.style.display = "none";
                 loading_message_area.style.display = "block";
-                for (const fileElem of codeProjectFolderSelect.files) {
-
-                    loading_message_area.textContent += "Carregando: " + fileElem.webkitRelativePath + "/n";
-                    UploadWithSignedUrl("code", null, fileElem, (error, response) => {
-                        if (error)
-                            alert(response + error.toString());
-                        else {
-                            console.log("Path:", fileElem.webkitRelativePath);
-                            loading_message_area.textContent += "Pronto: " + fileElem.webkitRelativePath + "/n";
-                            //load_Form.submit();
+                for (let i = 0; i < codeProjectFolderSelect.files.length; i++) {
+                    if (should_upload_this_file(codeProjectFolderSelect.files[i]) == false){
+                        console.log("O arquivo a seguir não será carregado devido as regras: " + codeProjectFolderSelect.files[i].webkitRelativePath);
+                        continue;
+                    }
+                    const msgFile = document.createElement("p");
+                    msgFile.textContent = "Carregando: " + codeProjectFolderSelect.files[i].webkitRelativePath;
+                    console.log(msgFile.textContent);
+                    loading_message_area.appendChild(msgFile);
+                    UploadWithSignedUrl("code", null, codeProjectFolderSelect.files[i], (error) => {
+                        if (error) {
+                            console.log(error);
+                            alert(error);
+                        } else {
+                            console.log(codeProjectFolderSelect.files[i].webkitRelativePath + " -> loaded!");
+                        }
+                        loading_message_area.removeChild(msgFile);
+                        if (loading_message_area.children.length == 0) // acabou de carregar
+                        {
+                            clicked_button.value = "update_code_files_btn";
+                            form.submit();
                         }
                     });
                 }
@@ -267,6 +282,33 @@
                 console.log("Nenhuma pasta selecionada.");
             }
         });
+
+        const allowed_file_types = ["html", "py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m",
+        "md", "txt", "pdf", "jpeg", "jpg", "png", "webp", "mp4", "mpeg","mov","avi","x-flv","mpg","webm", "wmv","3gpp", "json", "yaml", "yml", "sh", "css"];
+        const skipped_filepahts = [".DS_Store" , ".__pycache__" ,".git"]
+        function should_upload_this_file(file)
+        {
+            if (file.size <= 5) return false; // why 5 ? it cloiud be 0, but just excluding very small content
+            const filepath = file.webkitRelativePath;
+            const fileExtension = filepath.split('.').pop();
+            if (allowed_file_types.includes(fileExtension)) {
+                skipped_filepahts.forEach(function(pathStr) {
+                    if (filepath.includes(pathStr)) 
+                        return false;
+                });
+                return true;
+            } 
+            return false;
+        }
+
+        function containsAny(str, substrings) {
+            for (let i = 0; i < substrings.length; i++) {
+                if (str.includes(substrings[i])) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         const prompt_sugestions_slc = document.getElementById("prompt_sugestions_slc");
         const txt_prompt = document.getElementById("txt_prompt");
@@ -391,8 +433,6 @@
             }
             this.submit();
         });
-
-
 
         const txt_code_analysis = document.getElementById("txt_code_analysis");
         if (txt_code_analysis != null) {

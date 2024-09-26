@@ -99,7 +99,7 @@ def get_blobs(codeBucket, folder, file_types_array, blob_types=[]):
     blobs = codeBucket.list_blobs(prefix=folder)
     blobsToAnalize = []
     for blob in blobs:
-        if blob.size > 10: # why 10 ? it cloiud be 0, but just excluding very small content
+        if blob.size > 5: # why 5 ? it cloiud be 0, but just excluding very small content
             for file_types in file_types_array:
                 if getCodeFileExtenstion(blob.name) in file_types:
                     blobsToAnalize.append(blob)
@@ -112,3 +112,8 @@ def ensureExtension(filename, ext):
         filename += ext
     return filename
                     
+def excludeBlobFolder(codeBucket, folder):
+    blobs = codeBucket.list_blobs(prefix=folder)
+    for blob in blobs:
+        blob.delete()
+    return

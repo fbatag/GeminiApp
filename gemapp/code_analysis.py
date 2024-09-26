@@ -3,7 +3,7 @@ from vertexai.generative_models import GenerativeModel, Part
 import vertexai.preview.generative_models as generative_models
 from google.cloud import storage
 
-from .utils import clearDir, get_temp_user_folder, save_local_file, zip_folder, get_blobs
+from .utils import clearDir, get_temp_user_folder, save_local_file, zip_folder, get_blobs, getCodeFileExtenstion
 
 storage_client = storage.Client()
 CODE_BUCKET_NAME = os.environ.get("CODE_BUCKET_NAME", "gen-ai-app-code-") + storage_client.project

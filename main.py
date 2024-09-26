@@ -9,7 +9,7 @@ from gemapp.content_gen import IS_GAE_ENV_STD, CONTEXTS_BUCKET_NAME, load_prompt
 from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompts, saveLoadedPrompts, generate, save_results, save_prompts_to_file
 from gemapp.content_gen import uploadContext, contextsBucket
 
-from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwload_zip_file
+from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwload_zip_file, excludeBlobFolder
 from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateUnitTests, generate_code_analysis
 
 print("(RE)LOADING APPLICATION")
@@ -66,7 +66,6 @@ def getSignedUrlParam(dest_bucket, filepath, filetype):
                                             service_account_email=credentials.service_account_email, access_token=credentials.token,
                                             headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': filetype})
         except Exception as e:
-            print("ERROR ERROR ERROR")
             print(e)
             return str(e)
     #print(signeUrl)
@@ -155,6 +154,14 @@ def index():
         return proceed("generate_code_analysis", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_for_analysis())
     elif clicked_button == "generate_code_analysis":
         return renderIndex(analysisResult = generate_code_analysis(get_blobs_code_for_analysis(), request.form["txt_code_analysis"], request.form["model_name"]))
+    
+    elif clicked_button == "exclude_code_files_btn":
+        return proceed("exclude_code_files", bucket=CODE_BUCKET_NAME)
+    elif clicked_button == "exclude_code_files":
+        folder = request.form["projects_code_slc"]
+        print(f"deleting GCS code bucket ({CODE_BUCKET_NAME}) folder ({folder})")
+        excludeBlobFolder(codeBucket, folder)
+        loadCodeBucketFolders()
     
     return renderIndex()
 
