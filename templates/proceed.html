@@ -38,13 +38,13 @@
     {% endif %}
 
     {% if target_method == "generate_code_analysis" %}
-        <p style="color: white; font-weight: bold;">Excluindo o projeto "{{ choosen_project_code }}" com todo seu conteúdo" ... AGUARDE ....</p>
+    <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ choosen_project_code }}", usando o "{{ model_name }}" ... AGUARDE ....</p>
         <br>
         <p style="color: white; font-weight: bold;">PEDIDO: {{ txt_prompt }}</p>
     {% endif %}
 
     {% if target_method == "exclude_code_files" %}
-        <p style="color: white; font-weight: bold;">Gerando a análise pedida para o projeto "{{ choosen_project_code }}", usando o "{{ model_name }}" ... AGUARDE ....</p>
+    <p style="color: white; font-weight: bold;">Excluindo o projeto "{{ choosen_project_code }}" com todo seu conteúdo ... AGUARDE ....</p>
     {% endif %}
 
     {% if blob_list|length > 0  %}
