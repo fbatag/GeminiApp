@@ -57,8 +57,8 @@ export USER_GROUP=gcp-devops@fbatagin.altostrat.com
 export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
 
 gcloud services enable run.googleapis.com
-# primeiro deploy
 gcloud config set region/run $REGION
+export SERVICE_NAME=gemini-app-ui
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=60m \
    --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
    --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
