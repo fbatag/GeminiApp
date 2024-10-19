@@ -25,8 +25,8 @@
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
         <div class="tabs">
             <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
-            <div class="tab" id="tabUnitTestCodeGeneration" data-tab="divUnitTestGeneration">Gerador de teste unitário</div>
             <div class="tab" id="tabProjectAnalysis" data-tab="divProjectAnalysis">Análise de código</div>
+            <div class="tab" id="tabCodeGeneration" data-tab="divCodeGeneration">Gerador de código</div>
         </div>
 
         <div class="content" id="divContextGeneration">
@@ -143,22 +143,23 @@
             {% endif %}
         </div>
 
-        <div class="content" id="divUnitTestGeneration">
-            <input type="hidden" id="choosen_project_tests" name="choosen_project_tests" value="{{ choosen_project_tests }}">
-            <h2 style="display: inline-block;">Gerador de teste unitário em lote</h2>
-            <div id="div_test_unit" class="form-box">
+        <div class="content" id="divCodeGeneration">
+            <input type="hidden" id="choosen_project_code_generation" name="choosen_project_code_generation" value="{{ choosen_project_code_generation }}">
+            <h2 style="display: inline-block;">Gerador de código em lote</h2>
+            <div id="div_code_generation" class="form-box">
                 {% if projects_code|length == 0 %}
-                <p id="load_message_test_unit" style="font-weight: bold;">
+                <p id="load_message_code_generation" style="font-weight: bold;">
                     Nenhum projeto encontrado. Clique no botão "Atualizar projetos" ou adicione uma pasta com seu codebase,
-                    usando o botão "Adicionar projeto" ou ainda, faço o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}!
+                    usando o botão "Adicionar projeto" ou ainda, faço o upload do seu projeto diretamente no bucket:
+                    {{ code_bucket_name }} através da console do GCP!
                 </p>
                 <br>
                 <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
                 &nbsp;&nbsp;&nbsp;
                 <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
                 {% else %}
-                <label for="projects_u_tests_slc">Projeto:</label>
-                <select name="projects_u_tests_slc" id="projects_u_tests_slc">
+                <label for="projects_code_gen_slc">Projeto:</label>
+                <select name="projects_code_gen_slc" id="projects_code_gen_slc">
                     {% for project_code in projects_code %}
                     <option value="{{ project_code }}">{{ project_code }}</option>
                     {% endfor %}
@@ -169,14 +170,25 @@
                 &nbsp;&nbsp;&nbsp;
                 <button type="submit" name="exclude_code_files_btn" class="btn-clear-style-int">Excluir o projeto</button>
                 <br><br>
-                <button type="submit" name="generate_unit_tests" class="btn-generate-style">Gerar </button>
+                <label for="code_gen_sugestions_slc">Sugestões:</label>
+                <select name="code_gen_sugestions_slc" id="code_gen_sugestions_slc">
+                    {% for code_gen_sugestion in code_gen_sugestions %}
+                    <option value="{{ code_gen_sugestion }}">{{ code_gen_sugestion }}</option>
+                    {% endfor %}
+                </select>
+                <br>
+                <label for="txt_code_generation" style="color: black; font-weight: bold;">Pedido:</label>
+                <br>
+                <textarea name="txt_code_generation" id="txt_code_generation">{{ txt_code_generation }}</textarea>
+                <br><br>
+                <button type="submit" name="generate_code" class="btn-generate-style">Gerar </button>
                 {% endif %}
             </div>
             <br>
-            {% if unitTestFiles|length > 0 %}
-            <button type="submit" name="donwload_zip_unit_tests" class="btn-general-style">Baixar Zip </button>
+            {% if codeGenerationFiles|length > 0 %}
+            <button type="submit" name="donwload_zip_generated_files" class="btn-general-style">Baixar Zip </button>
             {% endif %}
-            {% for file, response in unitTestFiles %}  
+            {% for file, response in codeGenerationFiles %}  
             <p style="font-weight: bold; color: white;">{{ file }}</p>
             <div class="form-list" style="white-space: pre-wrap;">
                 {{ response }}
@@ -189,9 +201,10 @@
             <h2 style="display: inline-block;">Análise de código/projeto com GenAI</h2>
             <div id="div_analysis_code" class="form-box">
                 {% if projects_code|length == 0 %}
-                <p id="load_message_test_unit" style="font-weight: bold;">
+                <p id="load_message_code_generation" style="font-weight: bold;">
                     Nenhum projeto encontrado. Clique no botão "Atualizar projetos" ou adicione uma pasta com seu codebase,
-                    usando o botão "Adicionar projeto" ou ainda, faço o upload do seu projeto diretamente no GCS {{ test_unit_bucket }}!
+                    usando o botão "Adicionar projeto" ou ainda, faço o upload do seu projeto diretamente no bucket:
+                    {{ code_bucket_name }} através da console do GCP!
                 </p>
                 <br>
                 <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
@@ -217,7 +230,7 @@
                     {% endfor %}
                 </select>
                 <br>
-                <label for="txt_code_analysis" style="color: black; font-weight: bold;">Análise:</label>
+                <label for="txt_code_analysis" style="color: black; font-weight: bold;">Pedido:</label>
                 <br>
                 <textarea name="txt_code_analysis" id="txt_code_analysis">{{ txt_code_analysis }}</textarea>
                 <br><br>
@@ -347,10 +360,10 @@
             });
         }
 
-        const projects_u_tests_slc = document.getElementById("projects_u_tests_slc");
-        const choosen_project_tests = document.getElementById("choosen_project_tests");
-        if (projects_u_tests_slc != null && choosen_project_tests.value != "") {
-            projects_u_tests_slc.value = choosen_project_tests.value;
+        const projects_code_gen_slc = document.getElementById("projects_code_gen_slc");
+        const choosen_project_code_generation = document.getElementById("choosen_project_code_generation");
+        if (projects_code_gen_slc != null && choosen_project_code_generation.value != "") {
+            projects_code_gen_slc.value = choosen_project_code_generation.value;
         }
 
         const choosen_project_code = document.getElementById("choosen_project_code");
@@ -417,7 +430,7 @@
                 load_prompts_file.click();
                 return;
             }
-            //else if (clicked_button.value == "save_prompts" || clicked_button.value == "donwload_zip_unit_tests") {
+            //else if (clicked_button.value == "save_prompts" || clicked_button.value == "donwload_zip_generated_files") {
             else if (clicked_button.value == "save_prompts") {
                 const filename = prompt("Digite o caminho do arquivo:");
                 if (!filename) return;
@@ -438,7 +451,15 @@
         if (txt_code_analysis != null) {
             const analysis_sugestions_slc = document.getElementById("analysis_sugestions_slc");
             analysis_sugestions_slc.addEventListener("change", function () {
-            txt_code_analysis.value = analysis_sugestions_slc.value;
+                txt_code_analysis.value = analysis_sugestions_slc.value;
+            });        
+        }
+
+        const txt_code_generation = document.getElementById("txt_code_generation");
+        if (txt_code_generation != null) {
+            const code_gen_sugestions_slc = document.getElementById("code_gen_sugestions_slc");
+            code_gen_sugestions_slc.addEventListener("change", function () {
+                txt_code_generation.value = code_gen_sugestions_slc.value;
             });        
         }
 
@@ -467,7 +488,7 @@
         console.log(activeTab.value);
         document.getElementById(activeTab.value).click();
 
-        /*if (document.getElementById("activeTab").id == "tabUnitTestCodeGeneration")
+        /*if (document.getElementById("activeTab").id == "tabCodeGeneration")
         { não funcionou
             clicked_button.value = "update_code_files_btn";
             form.submit();

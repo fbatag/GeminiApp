@@ -47,37 +47,37 @@ def generate_code_analysis(blobs_to_analyze, prompt, model_name):
             uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
             parts.append(Part.from_uri(uri=uri, mime_type="text/plain"))
     print(msg)
-    unitTestFiles = model.generate_content(parts)
-    return unitTestFiles.text
+    generatedFiles = model.generate_content(parts)
+    return generatedFiles.text
 
-def generateUnitTests(blobs_code_unit_test_gen, folder, model_name):
-    print("METHOD: generate_unit_tests")
-    unitTestFiles = []
+def generateCode(blobs_code, folder, human_prompt, model_name):
+    print("METHOD: generateCode")
+    generatedFiles = []
     model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
     temp_user_folder = get_temp_user_folder()
     print("Cleaning temp_user_folder: " + temp_user_folder)
     clearDir(os.path.join(temp_user_folder,folder))
-    for blob in blobs_code_unit_test_gen:
+    for blob in blobs_code:
         uri = "gs://" + CODE_BUCKET_NAME + "/" + blob.name
         #try:
-        prompt = ["Generate unit tests for this code", Part.from_uri(uri=uri, mime_type="text/plain")]
+        prompt = [human_prompt, Part.from_uri(uri=uri, mime_type="text/plain")]
         response = model.generate_content(prompt)
         sub_folders = blob.name.split("/")
-        test_filename = "Test_" + sub_folders[-1]
-        print("Code: " + blob.name + " - Test: " + test_filename)
-        file_tuple = (test_filename, response.text)
-        unitTestFiles.append(file_tuple)
-        save_local_file(test_filename, response.text, sub_folders[:-1])
+        generated_filename = "Gen_" + sub_folders[-1]
+        print("Code: " + blob.name + " - Generated: " + generated_filename)
+        file_tuple = (generated_filename, response.text)
+        generatedFiles.append(file_tuple)
+        save_local_file(generated_filename, response.text, sub_folders[:-1])
         """except Exception as e:
             print(e)
             file_tuple = ("Error no processamento" , str(e))
-            unitTestFiles.append(file_tuple)"""
+            generatedFiles.append(file_tuple)"""
     #try:
     print("Zipping the files")
-    zip_folder(os.path.join(temp_user_folder,folder), os.path.join(temp_user_folder, "unit_tests.zip"))
+    zip_folder(os.path.join(temp_user_folder,folder), os.path.join(temp_user_folder, "generated_code.zip"))
     """except Exception as e:
         print(e)
         file_tuple = ("Error ao zipar os arquivos gerados." , str(e))
-        unitTestFiles.append(file_tuple)"""
-    return unitTestFiles
+        generatedFiles.append(file_tuple)"""
+    return generatedFiles
 

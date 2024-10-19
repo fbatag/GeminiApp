@@ -10,7 +10,7 @@ from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompt
 from gemapp.content_gen import uploadContext, contextsBucket
 
 from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwload_zip_file, excludeBlobFolder
-from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateUnitTests, generate_code_analysis
+from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateCode, generate_code_analysis
 
 print("(RE)LOADING APPLICATION")
 app = Flask(__name__)
@@ -25,6 +25,7 @@ PROMPT_SUGESTIONS=["", "Crie casos de teste a partir do sistema descrito no vide
 ANALYSIS_SUGESTIONS=["Descreva o sistema composto pelo conjunto de arquivos de código:", 
                      "Gere casos de teste para o sistema composto pelos arquivos a seguir:",
                      "Percorra todos os arquivos de código apresentados e compile a lógica que eles executam. 1. Organize por módulos funcionais; 2.Para cada serviço ou módulo funcional, descreva detalhadamente as tarefas que ele desempenha. 3. Detalhe qual a dependência entre eles e como eles interagem ou não um com o outro."]
+CODE_GENERATION_SUGESTIONS=["Gere testes unitários para este código","Converta o código para Java", "Converta o código para Python", "Converta o código para C#", "Converta o código para JavaScript"]
 
 from google import auth
 credentials, project_id = auth.default()
@@ -102,10 +103,6 @@ def index():
     elif clicked_button == "manage_contexts_btn":
         return renderIndex("context.html")
     elif clicked_button == "upload_context_btn":
-        #print("MAX_CONTENT_LENGTH: " + str(app.config['MAX_CONTENT_LENGTH']))
-        #uploadContext(request.form["projects_slc"],request.files["load_context_file"])
-        #getSignedUrlParam("TESTE", "teste.txt", "text/plain")
-        #print("SUCESSO")
         loadContextsBucket()
         return renderIndex("context.html")
     elif clicked_button == "delete_context_btn":
@@ -138,15 +135,15 @@ def index():
     elif clicked_button == "loadCodeBucketFolders":
         loadCodeBucketFolders()
 
-    elif clicked_button == "generate_unit_tests":
-        return proceed("get_blobs_code_unit_test_gen", bucket=CODE_BUCKET_NAME)
-    elif clicked_button == "get_blobs_code_unit_test_gen":
-        return proceed("generateUnitTests", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_unit_test_gen())
-    elif clicked_button == "generateUnitTests":
-        return renderIndex(unitTestFiles = generateUnitTests(get_blobs_code_unit_test_gen(), request.form["projects_u_tests_slc"], request.form["model_name"]))
+    elif clicked_button == "generate_code":
+        return proceed("get_blobs_code_generation", bucket=CODE_BUCKET_NAME)
+    elif clicked_button == "get_blobs_code_generation":
+        return proceed("generateCode", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_generation())
+    elif clicked_button == "generateCode":
+        return renderIndex(codeGenerationFiles = generateCode(get_blobs_code_generation(), request.form["projects_code_gen_slc"], request.form["txt_code_generation"], request.form["model_name"]))
     
-    elif clicked_button == "donwload_zip_unit_tests":
-        return donwload_zip_file(request.form["choosen_project_tests"])
+    elif clicked_button == "donwload_zip_generated_files":
+        return donwload_zip_file(request.form["choosen_project_code_generation"])
 
     elif clicked_button == "generate_code_analysis_btn":
         return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
@@ -165,7 +162,7 @@ def index():
     
     return renderIndex()
 
-def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles=[], analysisResult=""):
+def renderIndex(page="index.html", any_error="", keep_prompt=True, codeGenerationFiles=[], analysisResult=""):
     print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
     gc = get_global_contexts()
     activeTab = request.form.get("activeTab", "tabContextGeneration")
@@ -184,10 +181,10 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles
     if project != "" and len(gc[FOLDERS]) > 0:
         context_projects = gc[FOLDERS]
         contexts = gc[project]
-    choosen_project_tests = request.form.get("projects_u_tests_slc", "")
-    if choosen_project_tests == "" and len(global_code_projects) > 0:
-        choosen_project_tests = global_code_projects[0]
-    print("choosen_project_tests=" + choosen_project_tests + " - global_code_projects=" + str(global_code_projects))
+    choosen_project_code_generation = request.form.get("projects_code_gen_slc", "")
+    if choosen_project_code_generation == "" and len(global_code_projects) > 0:
+        choosen_project_code_generation = global_code_projects[0]
+    print("choosen_project_code_generation=" + choosen_project_code_generation + " - global_code_projects=" + str(global_code_projects))
 
     return render_template(page, user_version_info=get_user_version_info(), activeTab=activeTab, choosen_model_name=choosen_model_name, 
                         prompt_sugestions=PROMPT_SUGESTIONS,
@@ -195,13 +192,16 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, unitTestFiles
                         chk_include_ctx=request.form.get("chk_include_ctx","true"),
                         project=project, projects=context_projects, contexts=contexts, 
                         loaded_prompts=getLoadedPrompts(),                           
-                        projects_code=global_code_projects, choosen_project_tests=choosen_project_tests,
-                        unitTestFiles=unitTestFiles,
+                        projects_code=global_code_projects, choosen_project_code_generation=choosen_project_code_generation,
+                        codeGenerationFiles=codeGenerationFiles,
                         choosen_project_code=request.form.get("projects_code_slc",""),
                         analysis_sugestions=ANALYSIS_SUGESTIONS,
                         txt_code_analysis = request.form.get("txt_code_analysis", ANALYSIS_SUGESTIONS[0]),
+                        code_gen_sugestions=CODE_GENERATION_SUGESTIONS,
+                        txt_code_generation = request.form.get("txt_code_generation", CODE_GENERATION_SUGESTIONS[0]),
                         analysisResult=analysisResult,
-                        any_error=any_error)
+                        any_error=any_error,
+                        code_bucket_name=CODE_BUCKET_NAME)
     
 def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[]):
     print("METHOD: proceed" + " target_method: " + target_method)
@@ -211,26 +211,30 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
     txt_code_analysis = request.form.get("txt_code_analysis", "")
     if txt_code_analysis == "":
         txt_code_analysis = ANALYSIS_SUGESTIONS[0]
+    txt_code_generation = request.form.get("txt_code_generation", "")
+    if txt_code_generation == "":
+        txt_code_generation = CODE_GENERATION_SUGESTIONS[0]
     return render_template("proceed.html", 
                            user_version_info=get_user_version_info(), 
                            activeTab = request.form.get("activeTab", "tabContextGeneration"),
                            target_method=target_method, model_name=request.form.get("model_name",""), 
                            chk_include_ctx=request.form.get("chk_include_ctx","true"),
                            bucket=bucket, txt_prompt = request.form.get("txt_prompt", ""),
-                           choosen_project_tests = request.form.get("projects_u_tests_slc",""),
+                           choosen_project_code_generation = request.form.get("projects_code_gen_slc",""),
                            choosen_project_code=request.form.get("projects_code_slc",""),
                            txt_code_analysis = txt_code_analysis,
+                           txt_code_generation=txt_code_generation,
                            chk_include_txt_midia=request.form.get("chk_include_txt_midia",""),
-                           blob_list=blob_list )
+                           blob_list=blob_list)
 
 def loadCodeBucketFolders():
     print("METHOD: loadCodeBucketFolders")
     global global_code_projects
     global_code_projects = getBucketFilesAndFolders(codeBucket, False)[FOLDERS] 
     
-def get_blobs_code_unit_test_gen():
-    print("METHOD: get_blobs_code_unit_test_gen")
-    return get_code_midia_blobs(request.form["projects_u_tests_slc"], False)
+def get_blobs_code_generation():
+    print("METHOD: get_blobs_code_generation")
+    return get_code_midia_blobs(request.form["projects_code_gen_slc"], False)
 
 def get_blobs_code_for_analysis():
     return get_code_midia_blobs(request.form["projects_code_slc"] + "/", include_txt_midia=request.form.get("chk_include_txt_midia","") == "on")

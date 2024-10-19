@@ -77,7 +77,7 @@ def zip_folder(folder_path, output_filename):
 def donwload_zip_file(filename_to_save):
     print("METHOD: index -> donwload_zip_file")
     # vefifica se o nome do rquivo tem a extensão .zio, senão adiciona
-    origin = os.path.join(get_temp_user_folder(), "unit_tests.zip")
+    origin = os.path.join(get_temp_user_folder(), "generated_code.zip")
     return send_file(origin,  as_attachment=True, download_name=ensureExtension(filename_to_save, ".zip"))
 
 def clearDir(folder):
