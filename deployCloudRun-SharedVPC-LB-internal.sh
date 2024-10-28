@@ -64,34 +64,43 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
    --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
 # deploys seguintes (omitir o service account)
 # --cpu-throttling (CPU not allways allocated) and -no-allow-unauthenticated are default
-
+export SHARED_VPC_PROJECT_ID=shared-vpc-gem-app
+export SHARED_VPC_NAME=shared
+export SHARED_SUBNET_NAME=shared
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
 
-# LOAD BALANCER - EXTERNO - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
-gcloud compute addresses create $SERVICE_NAME-glb-ip --network-tier=PREMIUM --ip-version=IPV4 --global
-export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME-glb-ip --format="get(address)" --global)
-echo $LB_IP_NUMBER
+# CRIAR A PROXY-ONLY-SUBNET NA SHARED VPC E COMPARTILHA COM O PROJETO 
+gcloud compute networks subnets create proxy-only-subnet --project=$SHARED_VPC_PROJECT_ID --network=$SHARED_VPC_NAME --region=$REGION --range=10.161.0.0/26 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
 
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
-       --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
+    --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend-ext --load-balancing-scheme=EXTERNAL_MANAGED --global
+gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
-gcloud compute backend-services add-backend $SERVICE_NAME-backend-ext  --global \
-       --network-endpoint-group=$SERVICE_NAME-serverless-neg   --network-endpoint-group-region=$REGION
-# Crie o LB
-gcloud compute url-maps create $SERVICE_NAME-glb --default-service $SERVICE_NAME-backend-ext
-# Cria o frontend (LB) HTTP-proxy (NÃO FUNCIONA COM O IAP QUE REQUER HTTPS)
-#gcloud compute target-http-proxies create $SERVICE_NAME-http-proxy  --url-map=$SERVICE_NAME-glb
-#gcloud compute forwarding-rules create $SERVICE_NAME-http-fw-rule  --address=$LB_IP_NUMBER --global --ports=80 \
-#   --target-http-proxy=$SERVICE_NAME-http-proxy --load-balancing-scheme=EXTERNAL_MANAGED  --network-tier=PREMIUM 
-# Cria o frontend (LB) HTTPS-proxy
-gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --domains **DOMAIN**
-gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --url-map=$SERVICE_NAME-glb --ssl-certificates=$SERVICE_NAME-ssl-cert
-gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule --address=$LB_IP_NUMBER --global --ports=443 \
-   --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=EXTERNAL_MANAGED --network-tier=PREMIUM 
+gcloud compute backend-services add-backend $SERVICE_NAME-backend-int --region=$REGION \
+    --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
 
+# Cria o frontend (LB) HTTPS-proxy
+export ILB_IP_NUMBER=10.158.0.5
+openssl genrsa -out private.key 2048
+openssl req -new -x509 -key private.key -out certificate.crt -days 3650 -subj "/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=$ILB_IP_NUMBER"
+gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
+
+# Cria o frontend (LB) 
+gcloud compute url-maps create $SERVICE_NAME-int-lb --default-service $SERVICE_NAME-backend-int --region=$REGION
+# Cria o frontend (LB) HTTPS-proxy
+gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-int-lb --ssl-certificates=$SERVICE_NAME-ssl-cert
+
+# Reserva o IP (somente para garantir que o ip vai ficar fixo - não é obrigatório)
+gcloud compute addresses create $SERVICE_NAME-int-lb-ip --project=$PROJECT_ID --region=$REGION --purpose=SHARED_LOADBALANCER_VIP \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_VPC_NAME \
+   --addresses=$ILB_IP_NUMBER
+gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule --project=$PROJECT_ID --region=$REGION --ports=443 \
+   --network=projects/$SHARED_VPC_PROJECT_ID/global/networks/$SHARED_VPC_NAME \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_VPC_NAME \
+   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED \
+   --allow-global-access --address=$ILB_IP_NUMBER
 
 # Configurar o IAP para o LB
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
@@ -104,6 +113,9 @@ gcloud iap oauth-brands create --application_title=GeminiApp --support_email=$SU
 gcloud iap oauth-clients create BRAND --display_name=GeminiApp
 gcloud iap web enable --resource-type=backend-services --service=$SERVICE_NAME-backend
     
+#configurar o IP Do LB como allowed domain no IAP
+# https://cloud.google.com/iap/docs/allowed-domains?hl=pt-br#console
+
 # Usuário da aplicação = permissão no IAP    
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --role=roles/iap.httpsResourceAccessor
 
@@ -111,3 +123,8 @@ gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --
 gcloud compute backend-services update $SERVICE_NAME-backend --global --iap=enabled
 # OU Escopo Regional
 gcloud compute backend-services update $SERVICE_NAME-backend --region $REGION --iap=enabled
+
+
+# Por fim, para não ter erro no certificado, criar uma CA Authority privada, gerar um certificado a partir dela e associar a FW-rule a este cerficado no lugar 
+# do auto assinado.
+# No DNS criar uma managed Zone privada e criar um domain privado para ser associado 

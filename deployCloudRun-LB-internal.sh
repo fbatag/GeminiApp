@@ -57,7 +57,7 @@ export USER_GROUP=gcp-devops@fbatagin.altostrat.com
 export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
 
 gcloud services enable run.googleapis.com
-gcloud config set region/run $REGION
+gcloud config set run/region $REGION
 export SERVICE_NAME=gemini-app-ui
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=60m \
    --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
@@ -79,20 +79,27 @@ gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID -
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
     --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
+gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
-gcloud compute backend-services add-backend $SERVICE_NAME-backend --region=$REGION \
+gcloud compute backend-services add-backend $SERVICE_NAME-backend-int --region=$REGION \
     --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
-# Cria o frontend (LB) 
-gcloud compute url-maps create $SERVICE_NAME-lb --default-service $SERVICE_NAME-backend --region=$REGION
-# Cria o frontend (LB) HTTPS-proxy
+
+export ILB_IP_NUMBER=10.0.0.10
 openssl genrsa -out private.key 2048
-openssl req -new -x509 -key private.key -out certificate.crt -days 3650
+openssl req -new -x509 -key private.key -out certificate.crt -days 3650 -subj "/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=$ILB_IP_NUMBER"
 gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
-gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-lb  --ssl-certificates=$SERVICE_NAME-ssl-cert
+
+# Cria o frontend (LB) 
+gcloud compute url-maps create $SERVICE_NAME-int-lb  --default-service $SERVICE_NAME-backend-int --region=$REGION
+# Cria o frontend (LB) HTTPS-proxy
+gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-int-lb   --ssl-certificates=$SERVICE_NAME-ssl-cert
+
+# Reserva o IP (somente para garantir que o ip vai ficar fixo - não é obrigatório)
+gcloud compute addresses create $SERVICE_NAME-int-lb-ip --project=$PROJECT_ID --region=$REGION --purpose=GCE_ENDPOINT \
+   --subnet=default --addresses=$ILB_IP_NUMBER
 gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --region=$REGION --ports=443 --network=default --subnet=default \
    --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED \
-   --allow-global-access --address=10.0.0.10
+   --allow-global-access --address=$ILB_IP_NUMBER
 
 # Configurar o IAP para o LB
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
@@ -107,6 +114,9 @@ gcloud iap web enable --resource-type=backend-services --service=$SERVICE_NAME-b
     
 # Usuário da aplicação = permissão no IAP    
 gcloud projects add-iam-policy-binding $PROJECT_ID --member=group:$USER_GROUP --role=roles/iap.httpsResourceAccessor
+
+#configurar o IP Do LB como allowed domain no IAP
+# https://cloud.google.com/iap/docs/allowed-domains?hl=pt-br#console
 
 # Escopo Global
 gcloud compute backend-services update $SERVICE_NAME-backend --global --iap=enabled
