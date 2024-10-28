@@ -98,7 +98,7 @@ gcloud compute addresses create $SERVICE_NAME-int-lb-ip --project=$PROJECT_ID --
    --addresses=$ILB_IP_NUMBER
 gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule --project=$PROJECT_ID --region=$REGION --ports=443 \
    --network=projects/$SHARED_VPC_PROJECT_ID/global/networks/$SHARED_VPC_NAME \
-   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_VPC_NAME \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_SUBNET_NAME \
    --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED \
    --allow-global-access --address=$ILB_IP_NUMBER
 
