@@ -59,8 +59,8 @@ def getSignedUrlParam(dest_bucket, object_destination, filetype):
     else:
         print("CREDENTIALS")
         print(credentials.service_account_email)
-        if credentials.token is None:
-            credentials.refresh(auth.transport.requests.Request())
+        #if credentials.token is None:
+        credentials.refresh(auth.transport.requests.Request())
         print(credentials.token)
         signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=filetype, 
                                     service_account_email=credentials.service_account_email, access_token=credentials.token,
