@@ -1,23 +1,27 @@
 function UploadWithSignedUrl(dest_bucket, project, file, callback) {
+    if (file.size <= 5) 
+    {
+        callback("Por definição, o arquivo deve conter pelo menos 5 bytes de informação.");
+        return;
+    }
     if (project)
-        filepath = project + "/" + file.name;
+        object_destination = project + "/" + file.name;
     else
-        filepath = file.webkitRelativePath;
-    getSignedUrl(dest_bucket, filepath, file.type, (error, signedUrl) => {
+        object_destination = file.webkitRelativePath;
+    getSignedUrl(dest_bucket, object_destination, file.type, (error, signedUrl) => {
         if (error) {
             callback(error);
           } else {
-            //console.log("URL assinada:", signedUrl);
             uploadFileToGCS(signedUrl, file, callback);
           }
     });
 }
 
-function getSignedUrl(dest_bucket, filepath, filetype, callback) {
+function getSignedUrl(dest_bucket, object_destination, filetype, callback) {
     const xhr = new XMLHttpRequest();
     const url = `/getSignedUrl?${new URLSearchParams({
         dest_bucket: dest_bucket,
-        filepath: filepath,
+        object_destination: object_destination,
         filetype: filetype
     }).toString()}`;
 
@@ -26,11 +30,11 @@ function getSignedUrl(dest_bucket, filepath, filetype, callback) {
         if (xhr.status === 200) {
             callback(null, xhr.responseText);
         } else {
-            callback(xhr.status + ": Erro ao tentar obter a URL assinada para o arquivo: " + filepath, null);
+            callback(xhr.status + " : Erro ao tentar obter a URL assinada para o arquivo " + object_destination + ". Resposta: " + xhr.responseText, null);
         }
     };
     xhr.onerror = function (event) {
-        callback(event.toString() + ": Erro (onerror) ao tentar obter a URL assinada para o arquivo: " + filepath, null);
+        callback("Erro (onerror) ao tentar obter a URL assinada para o arquivo " + object_destination + ". Resposta: " + xhr.responseText);
     };
     xhr.send();
 }
@@ -38,17 +42,16 @@ function getSignedUrl(dest_bucket, filepath, filetype, callback) {
 function uploadFileToGCS(signedUrl, file, callback) {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", signedUrl, true);
-    let filepath = file.webkitRelativePath;
     xhr.onload = () => {
         const status = xhr.status;
         if (status === 200) {
-            callback(null)
+            callback(null);
         } else {
-            callback(xhr.status + ": Erro no upload do arquivo: " + filepath);
+            callback(xhr.status + " : Erro ao tentar carregar o arquivo " + file.name + " usando URL assinada. Resposta: " + xhr.responseText);
         }
     };
     xhr.onerror = (event) => {
-        callback(event.toString() + ": Erro (onerror) no upload do arquivo: " + filepath);
+        callback("Erro ao tentar carregar o arquivo " + file.name + " usando URL assinada. Resposta: " + xhr.responseText);
     };
     xhr.setRequestHeader('Content-Type', file.type);
     xhr.setRequestHeader('X-Goog-Content-Length-Range', '1,5000000000');

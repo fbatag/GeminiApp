@@ -90,7 +90,7 @@
                 ShowLoadingMessage("Carregando o arquivo \"" + this.files[0].name + "\" para o projeto \"" + projects_slc.value + "\".  AGUARDE ... ");
                 UploadWithSignedUrl("context", projects_slc.value, this.files[0], (error, response) => {
                     if (error)
-                        alert(response + error.toString());
+                        alert(error);
                     fileElem = document.getElementById('load_context_file');
                     if (fileElem != null) {
                         //alert('** REMOVENDO ** fileElem')

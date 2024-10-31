@@ -32,7 +32,7 @@ credentials, project_id = auth.default()
 from google.oauth2 import service_account
 
 def get_user_version_info():
-    return "User: " + get_iap_user() + " -  Version: 1.0.4" 
+    return "User: " + get_iap_user() + " -  Version: 1.1.0"
     return
 
 @app.route("/getSignedUrl", methods=["GET"])
@@ -40,14 +40,14 @@ def getSignedUrl():
     print("METHOD: getSignedUrl")
     print(request.args)
     dest_bucket = request.args.get("dest_bucket")
-    filepath = request.args.get("filepath")
+    object_destination = request.args.get("object_destination")
     filetype = request.args.get("filetype")
     if dest_bucket == "code":
-        return getSignedUrlParam(codeBucket, filepath, filetype)
-    return getSignedUrlParam(contextsBucket, filepath, filetype)
+        return getSignedUrlParam(codeBucket, object_destination, filetype)
+    return getSignedUrlParam(contextsBucket, object_destination, filetype)
 
-def getSignedUrlParam(dest_bucket, filepath, filetype):
-    blob = dest_bucket.blob(filepath)
+def getSignedUrlParam(dest_bucket, object_destination, filetype):
+    blob = dest_bucket.blob(object_destination)
     expiration=datetime.timedelta(minutes=15)
 
     print('Content-Type: '+  filetype)
@@ -62,13 +62,11 @@ def getSignedUrlParam(dest_bucket, filepath, filetype):
         if credentials.token is None:
             credentials.refresh(auth.transport.requests.Request())
         print(credentials.token)
-        try:
-            signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=filetype, 
-                                            service_account_email=credentials.service_account_email, access_token=credentials.token,
-                                            headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': filetype})
-        except Exception as e:
-            print(e)
-            return str(e)
+        signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=filetype, 
+                                    service_account_email=credentials.service_account_email, access_token=credentials.token,
+                                    headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': filetype})
+        #except Exception as e:
+        #    print(e)
     #print(signeUrl)
     return signeUrl
 

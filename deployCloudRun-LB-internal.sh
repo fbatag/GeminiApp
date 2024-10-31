@@ -1,11 +1,15 @@
 export PROJECT_ID=$(gcloud config get project)
 echo $PROJECT_ID
 export REGION=southamerica-east1
+export SERVICE_NAME=gemini-app-ui
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
+echo $PROJECT_NUMBER
 export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
 export USER_GROUP=gcp-devops@fbatagin.altostrat.com
 export DEPLOY_GROUP=gcp-devops@fbatagin.altostrat.com
 
-
+gcloud config set run/region $REGION
+gcloud services enable run.googleapis.com
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
@@ -50,15 +54,6 @@ gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
    --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
 
 #deploy em Cloud Run (não é necessário yaml)
-export SERVICE_NAME=gemini-app-ui
-export PROJECT_ID=$(gcloud config get project)
-export REGION=southamerica-east1
-export USER_GROUP=gcp-devops@fbatagin.altostrat.com
-export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
-
-gcloud services enable run.googleapis.com
-gcloud config set run/region $REGION
-export SERVICE_NAME=gemini-app-ui
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=60m \
    --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
    --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
@@ -67,7 +62,7 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
 
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
 
-# LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna) - # LOAD BALANCER - INTERNO (PEDIDO DASA - se acessível somente na rede interna)
+# LOAD BALANCER - INTERNO 
 gcloud services enable compute.googleapis.com
 gcloud compute networks create default --project=$PROJECT_ID --subnet-mode=custom --mtu=1460 --bgp-routing-mode=global
 gcloud compute networks subnets create default --project=$PROJECT_ID --network=default --region=$REGION --range=10.0.0.0/24
@@ -75,10 +70,12 @@ gcloud compute networks subnets create default --project=$PROJECT_ID --network=d
 # Eles são o Classic (HTTP e TCP) e TCP passthroough - ref: https://cloud.google.com/load-balancing/docs/choosing-load-balancer
 gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID --network=default --region=$REGION --range=10.255.0.0/24 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
 
-# Crie um NEG sem servidor para o app sem servidor para o Cloud Run
+# Crie um NEG sem servidor para o app sem servidor para o Cloud Run (essa lina é em comum com TODOS LOAD BALANCERS)
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
-    --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
-#Crie um serviço de back-end
+       --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
+
+
+#Crie um serviço de back-end para Load balancer interno
 gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
 gcloud compute backend-services add-backend $SERVICE_NAME-backend-int --region=$REGION \
@@ -87,12 +84,12 @@ gcloud compute backend-services add-backend $SERVICE_NAME-backend-int --region=$
 export ILB_IP_NUMBER=10.0.0.10
 openssl genrsa -out private.key 2048
 openssl req -new -x509 -key private.key -out certificate.crt -days 3650 -subj "/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=$ILB_IP_NUMBER"
-gcloud compute ssl-certificates create $SERVICE_NAME-ssl-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
+gcloud compute ssl-certificates create $SERVICE_NAME-ssl-priv-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
 
 # Cria o frontend (LB) 
 gcloud compute url-maps create $SERVICE_NAME-int-lb  --default-service $SERVICE_NAME-backend-int --region=$REGION
 # Cria o frontend (LB) HTTPS-proxy
-gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-int-lb   --ssl-certificates=$SERVICE_NAME-ssl-cert
+gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-int-lb   --ssl-certificates=$SERVICE_NAME-ssl-priv-cert
 
 # Reserva o IP (somente para garantir que o ip vai ficar fixo - não é obrigatório)
 gcloud compute addresses create $SERVICE_NAME-int-lb-ip --project=$PROJECT_ID --region=$REGION --purpose=GCE_ENDPOINT \
@@ -102,8 +99,6 @@ gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --region=$RE
    --allow-global-access --address=$ILB_IP_NUMBER
 
 # Configurar o IAP para o LB
-export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
-echo $PROJECT_NUMBER
 gcloud beta services identity create --service=iap.googleapis.com --project=$PROJECT_ID
 gcloud run services add-iam-policy-binding $SERVICE_NAME --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com  \
 --role='roles/run.invoker' --region $REGION
