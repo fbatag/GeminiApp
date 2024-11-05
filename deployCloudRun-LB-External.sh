@@ -6,6 +6,7 @@ export USER_GROUP=gcp-devops@fbatagin.altostrat.com
 export DEPLOY_GROUP=gcp-devops@fbatagin.altostrat.com
 
 
+gcloud services enable iam.googleapis.com
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
@@ -30,6 +31,10 @@ gcloud iam service-accounts create gemini-app-sa \
 gcloud projects add-iam-policy-binding $PROJECT_ID \
 --member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
 --role roles/aiplatform.user
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role roles/iam.serviceAccountTokenCreator
 
 gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_ID \
 --member=serviceAccount:gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com \
