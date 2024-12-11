@@ -25,8 +25,8 @@
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
         <div class="tabs">
             <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
-            <div class="tab" id="tabProjectAnalysis" data-tab="divProjectAnalysis">Análise de código</div>
-            <div class="tab" id="tabCodeGeneration" data-tab="divCodeGeneration">Gerador de código</div>
+            <!--div class="tab" id="tabFileProcessing" data-tab="divFileProcessing">Processar um arquivo</div-->
+            <div class="tab" id="tabProjectAnalysis" data-tab="divProjectAnalysis">Análise ou geração de projetos</div>
         </div>
 
         <div class="content" id="divContextGeneration">
@@ -76,7 +76,7 @@
                     {% else %}
                     {% if projects|length > 0 %}
                     <label id="load_message" style="font-weight: bold;">
-                        Nada contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e
+                        Nenhum contexto encontrado. Clique no botão 'Gerenciar projetos' para adicionar projetos e
                         contextos.
                     </label>
                     {% endif %}
@@ -143,59 +143,52 @@
             {% endif %}
         </div>
 
-        <div class="content" id="divCodeGeneration">
-            <input type="hidden" id="choosen_project_code_generation" name="choosen_project_code_generation" value="{{ choosen_project_code_generation }}">
-            <h2 style="display: inline-block;">Gerador de código em lote</h2>
-            <div id="div_code_generation" class="form-box">
-                {% if projects_code|length == 0 %}
-                <p id="load_message_code_generation" style="font-weight: bold;">
-                    Nenhum projeto encontrado. Clique no botão "Atualizar projetos" ou adicione uma pasta com seu codebase,
-                    usando o botão "Adicionar projeto" ou ainda, faço o upload do seu projeto diretamente no bucket:
-                    {{ code_bucket_name }} através da console do GCP!
-                </p>
-                <br>
-                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
-                &nbsp;&nbsp;&nbsp;
-                <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
-                {% else %}
-                <label for="projects_code_gen_slc">Projeto:</label>
-                <select name="projects_code_gen_slc" id="projects_code_gen_slc">
-                    {% for project_code in projects_code %}
-                    <option value="{{ project_code }}">{{ project_code }}</option>
-                    {% endfor %}
-                </select></select>&nbsp;&nbsp;&nbsp;               
-                <button type="submit" name="add_code_project_btn" class="btn-build-style">Adicionar projeto</button>
-                &nbsp;&nbsp;&nbsp;
-                <button type="submit" name="update_code_files_btn" class="btn-build-style">Atualizar projetos</button>
-                &nbsp;&nbsp;&nbsp;
-                <button type="submit" name="exclude_code_files_btn" class="btn-clear-style-int">Excluir o projeto</button>
-                <br><br>
-                <label for="code_gen_sugestions_slc">Sugestões:</label>
-                <select name="code_gen_sugestions_slc" id="code_gen_sugestions_slc">
-                    {% for code_gen_sugestion in code_gen_sugestions %}
-                    <option value="{{ code_gen_sugestion }}">{{ code_gen_sugestion }}</option>
-                    {% endfor %}
-                </select>
-                <br>
-                <label for="txt_code_generation" style="color: black; font-weight: bold;">Pedido:</label>
-                <br>
-                <textarea name="txt_code_generation" id="txt_code_generation">{{ txt_code_generation }}</textarea>
-                <br><br>
-                <button type="submit" name="generate_code" class="btn-generate-style">Gerar </button>
-                {% endif %}
-            </div>
+        <div class="content" id="divFileProcessing">
+            <h2 style="display: inline-block;">Processar um arquivo</h2>
             <br>
-            {% if codeGenerationFiles|length > 0 %}
-            <button type="submit" name="donwload_zip_generated_files" class="btn-general-style">Baixar Zip </button>
-            {% endif %}
-            {% for file, response in codeGenerationFiles %}  
-            <p style="font-weight: bold; color: white;">{{ file }}</p>
-            <div class="form-list" style="white-space: pre-wrap;">
-                {{ response }}
+            <div id="divFileProcArea" class="form-box">
+                <br>
+                <br>
+                    <label for="txt_file_process_prompt" style="color: black; font-weight: bold;">Pedido de processamento:</label>
+                <br>
+                <textarea name="txt_file_process_prompt" id="txt_file_process_prompt">{{ txt_file_process_prompt }}</textarea>
+                <br><br>
+                <div id="div_projects" class="form-box">
+                    {% if projects|length > 0 %}
+                    <label for="projects_slc">Projeto:</label>
+                    <select name="projects_slc" id="projects_slc">
+                        {% for project in projects %}
+                        <option value="{{ project }}">{{ project }}</option>
+                        {% endfor %}
+                    </select>&nbsp;&nbsp;&nbsp;
+                    {% else %}
+                    <p id="load_message" style="font-weight: bold;">
+                        Nenhum projeto encontrado. Use a tab 'Gerenciador de conteúdo' para para adicionar projetos e
+                        contextos.
+                    </p>
+                    {% endif %}
+                    {% if contexts|length > 0 %}
+                    <label for="contexts_slc">Contexto:</label>
+                    <select name="contexts_slc" id="contexts_slc">
+                        {% for context in contexts %}
+                        <option value="{{ context }}">{{ context }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                        {% if projects|length > 0 %}
+                        <label id="load_message" style="font-weight: bold;">
+                            Nenhum contexto encontrado. Use a tab 'Gerenciador de conteúdo' para para adicionar projetos e
+                            contextos.
+                        </label>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <br><br>
+                <button type="submit" name="load_process_file_btn" class="btn-proceed-style">Processar</button>&nbsp;&nbsp;&nbsp;
             </div>
-            {% endfor %}
+            <br><br>
         </div>
-        
+       
         <div class="content" id="divProjectAnalysis">
             <input type="hidden" id="choosen_project_code" name="choosen_project_code" value="{{ choosen_project_code }}">
             <h2 style="display: inline-block;">Análise de código/projeto com GenAI</h2>
@@ -234,9 +227,14 @@
                 <br>
                 <textarea name="txt_code_analysis" id="txt_code_analysis">{{ txt_code_analysis }}</textarea>
                 <br><br>
-                <button type="submit" name="generate_code_analysis_btn" class="btn-generate-style">Gerar análise</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="analize_code_btn" class="btn-generate-style">Analisar</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="generate_code_btn" class="btn-generate-style">Gerar</button>&nbsp;&nbsp;&nbsp;
                 <label for="chk_include_txt_midia" style="color: black; font-weight: bold;">Incluir texto e midia</label>
-                <input type="checkbox" id="chk_include_txt_midia" name="chk_include_txt_midia">
+                    {% if chk_include_txt_midia == "true" %}
+                    <input type="checkbox" id="chk_include_txt_midia" name="chk_include_txt_midia" value="chk_include_txt_midia" checked>
+                    {% else %}
+                    <input type="checkbox" id="chk_include_txt_midia" name="chk_include_txt_midia" value="chk_include_txt_midia">
+                    {% endif %}
                 {% endif %}
             </div>
             <br>
@@ -245,6 +243,15 @@
                 {{ analysisResult }}
             </div>
             {% endif %}
+            {% if codeGeneratedFiles|length > 0 %}
+            <button type="submit" name="donwload_zip_generated_files" class="btn-general-style">Baixar Zip </button>
+            {% endif %}
+            {% for file, response in codeGeneratedFiles %}  
+            <p style="font-weight: bold; color: white;">{{ file }}</p>
+            <div class="form-list" style="white-space: pre-wrap;">
+                {{ response }}
+            </div>
+            {% endfor %}
         </div>
     </form>
 
@@ -360,12 +367,6 @@
             });
         }
 
-        const projects_code_gen_slc = document.getElementById("projects_code_gen_slc");
-        const choosen_project_code_generation = document.getElementById("choosen_project_code_generation");
-        if (projects_code_gen_slc != null && choosen_project_code_generation.value != "") {
-            projects_code_gen_slc.value = choosen_project_code_generation.value;
-        }
-
         const choosen_project_code = document.getElementById("choosen_project_code");
         const projects_code_slc = document.getElementById("projects_code_slc");
         if (projects_code_slc != null && choosen_project_code.value != "") {
@@ -452,14 +453,6 @@
             const analysis_sugestions_slc = document.getElementById("analysis_sugestions_slc");
             analysis_sugestions_slc.addEventListener("change", function () {
                 txt_code_analysis.value = analysis_sugestions_slc.value;
-            });        
-        }
-
-        const txt_code_generation = document.getElementById("txt_code_generation");
-        if (txt_code_generation != null) {
-            const code_gen_sugestions_slc = document.getElementById("code_gen_sugestions_slc");
-            code_gen_sugestions_slc.addEventListener("change", function () {
-                txt_code_generation.value = code_gen_sugestions_slc.value;
             });        
         }
 

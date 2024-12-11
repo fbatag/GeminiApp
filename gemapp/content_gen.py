@@ -1,38 +1,14 @@
 import os, json
 from flask import request, render_template
-from google.appengine.api import memcache
-from vertexai.generative_models import GenerativeModel, Part
-import vertexai.preview.generative_models as generative_models
+from vertexai.generative_models import Part
 from google.cloud import storage
 
-from gemapp.utils import get_iap_user, getBucketFilesAndFolders, save_cli_file
+from .utils import get_iap_user, getGenerativeModel, getBucketFilesAndFolders, save_cli_file
 
 storage_client = storage.Client()
 CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
 print(CONTEXTS_BUCKET_NAME)
 contextsBucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
-
-generation_config = {
-    "max_output_tokens": 8192,
-    "temperature": 1,
-    "top_p": 0.95,
-}
-
-safety_settings = {
-    generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-}
-
-# ATENÇÃO: Os parãmetros abaixo somente funcionam com prompt texto. Se um arquivo é incluido, dai erro "400 Request contains an invalid argument." 
-#safety_settings_none = {
- #   #generative_models.HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
-#}
 
 IS_GAE_ENV_STD = os.getenv('GAE_ENV', "") == "standard"
 
@@ -139,7 +115,7 @@ def delete_prompt_step(step_num_str):
 def generate(model_name):
     print("METHOD: regenerate")
     print("Model: " + model_name)
-    model = GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
+    model = getGenerativeModel(model_name)
     chat = model.start_chat()
     
     token_consumption = []

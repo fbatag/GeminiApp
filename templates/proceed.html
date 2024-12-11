@@ -15,10 +15,8 @@
         <input type="hidden" name="model_name" value="{{ model_name }}">
         <input type="hidden" name="txt_prompt" value="{{ txt_prompt }}">
         <input type="hidden" name="activeTab" value="{{ activeTab }}">
-        <input type="hidden" name="projects_code_gen_slc" value="{{ choosen_project_code_generation }}">
         <input type="hidden" name="projects_code_slc" value="{{ choosen_project_code }}">
         <input type="hidden" name="txt_code_analysis" value="{{ txt_code_analysis }}">
-        <input type="hidden" name="txt_code_generation" value="{{ txt_code_generation }}">
         <input type="hidden" id="clicked_button" name="clicked_button" value="{{target_method}}">
         <input type="hidden" id="chk_include_ctx" name="chk_include_ctx" value="{{chk_include_ctx}}">
         <input type="hidden" id="chk_include_txt_midia" name="chk_include_txt_midia" value="{{ chk_include_txt_midia }}">
@@ -31,15 +29,10 @@
     {% endif %}
 
     {% if target_method == "loadCodeBucketFolders" %}
-        <p style="color: white; font-weight: bold;">Lendo os projetos do bucket "{{ bucket}}" do GCS... AGUARDE ....</p>
+        <p style="color: white; font-weight: bold;">Lendo os projetos do bucket "{{ bucket }}" do GCS... AGUARDE ....</p>
     {% endif %}
 
-    {% if target_method == "generateCode" %}
-        <p style="color: white; font-weight: bold;">{{ txt_code_generation }} para o projeto "{{ choosen_project_code_generation }}", usando o "{{ model_name }}"</p>
-        <p style="color: white; font-weight: bold;">... AGUARDE ....</p>
-    {% endif %}
-
-    {% if target_method == "generate_code_analysis" %}
+    {% if target_method == "analizeCode" or target_method == "generateCode" %}
         <p style="color: white; font-weight: bold;">{{ txt_code_analysis }} para o projeto "{{ choosen_project_code }}", usando o "{{ model_name }}"</p>
         <p style="color: white; font-weight: bold;">... AGUARDE ....</p>
     {% endif %}
