@@ -46,6 +46,19 @@ def get_iap_user():
         user = user.replace("accounts.google.com:","")
     return user
 
+def get_blobs(codeBucket, folder, file_types_array, blob_types=[]):
+    print("METHOD: get_blobs_to_analyze")
+    blobs = codeBucket.list_blobs(prefix=folder)
+    blobsToAnalize = []
+    for blob in blobs:
+        if blob.size > 5: # why 5 ? it cloiud be 0, but just excluding very small content
+            for file_types in file_types_array:
+                if getCodeFileExtenstion(blob.name) in file_types:
+                    blobsToAnalize.append(blob)
+            if blob.content_type in blob_types:
+                blobsToAnalize.append(blob)
+    return blobsToAnalize
+
 def getBucketFilesAndFolders(fromBucket, addFiles = True):
     print("METHOD: getBucketFilesAndFolders: Bucket Name: " + fromBucket.name)
     if not fromBucket.exists:
@@ -68,7 +81,6 @@ def getBucketFilesAndFolders(fromBucket, addFiles = True):
             gc[folder_name].append(parts[-1])
     gc[FOLDERS]  = projects
     return gc
-
     
 def get_temp_user_folder(sub_folders=[]):
     temp_dir = "/tmp"
@@ -129,19 +141,6 @@ def getCodeFileExtenstion(filename):
     parts = filename.split(".")
     return parts[-1].lower()
 
-def get_blobs(codeBucket, folder, file_types_array, blob_types=[]):
-    print("METHOD: get_blobs_to_analyze")
-    blobs = codeBucket.list_blobs(prefix=folder)
-    blobsToAnalize = []
-    for blob in blobs:
-        if blob.size > 5: # why 5 ? it cloiud be 0, but just excluding very small content
-            for file_types in file_types_array:
-                if getCodeFileExtenstion(blob.name) in file_types:
-                    blobsToAnalize.append(blob)
-            if blob.content_type in blob_types:
-                blobsToAnalize.append(blob)
-    return blobsToAnalize
-
 def ensureExtension(filename, ext):
     if not filename.endswith(ext):
         filename += ext
@@ -152,22 +151,4 @@ def excludeBlobFolder(codeBucket, folder):
     for blob in blobs:
         blob.delete()
     return
-
-#load file content from an object in GCS
-def load_file_contexts(project_name, filename):
-    blob = contextsBucket.blob(project_name + "/" + filename)
-    content = blob.download_as_string().decode("utf-8")
-    return content
-
-#load a text file line by line
-def load_text_file_line_by_line(filepath):
-    try:
-        with open(filepath, 'r') as file:
-            lines = file.readlines()
-            return lines
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        return None
-
 

@@ -16,7 +16,7 @@
             <select name="model_name">
                 <option value="gemini-1.5-flash-002">Gemini-1.5-flash-002</option>
                 <option value="gemini-1.5-pro-002">Gemini-1.5-pro-002</option>
-                <option value="gemini-experimental">Gemini-experimental</option>
+                <option value="medlm-large-1.5">MedLM-Large-1.5</option>
             </select>
             <input type="hidden" id="choosen_model_name" name="choosen_model_name" value="{{ choosen_model_name }}">
             <b style="float: right; text-align: right;">{{ user_version_info }}</b>
@@ -25,7 +25,6 @@
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
         <div class="tabs">
             <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
-            <!--div class="tab" id="tabFileProcessing" data-tab="divFileProcessing">Processar um arquivo</div-->
             <div class="tab" id="tabProjectAnalysis" data-tab="divProjectAnalysis">Análise ou geração de projetos</div>
         </div>
 
@@ -45,7 +44,7 @@
                 <br>
                 <textarea name="txt_prompt" id="txt_prompt">{{ txt_prompt }}</textarea>
                 <br><br>
-                {% if chk_include_ctx == "true" %}
+                {% if include_file_context == "true" %}
                 <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context" checked>
                 {% else %}
                 <input type="checkbox" id="chk_include_context" name="chk_include_context" value="chk_include_context">
@@ -110,7 +109,8 @@
             <input type="hidden" id="filename_to_save" name="filename_to_save"></input>
             <input type="hidden" id="clicked_button" name="clicked_button" value="">
             <input type="hidden" id="step_to_delete" name="step_to_delete" value="">
-            <input type="hidden" id="chk_include_ctx" name="chk_include_ctx" value="{{chk_include_ctx}}">
+            <input type="hidden" id="include_file_context" name="include_file_context" value="{{ include_file_context }}">
+            <input type="hidden" id="include_media_file" name="include_media_file" value="{{ include_media_file }}">
             {% if loaded_prompts|length > 0 %}
             <h2>Pedidos e contextos carregados</h2>
             <div id="div_context_steps" class="form-list">
@@ -142,53 +142,7 @@
             </div>
             {% endif %}
         </div>
-
-        <div class="content" id="divFileProcessing">
-            <h2 style="display: inline-block;">Processar um arquivo</h2>
-            <br>
-            <div id="divFileProcArea" class="form-box">
-                <br>
-                <br>
-                    <label for="txt_file_process_prompt" style="color: black; font-weight: bold;">Pedido de processamento:</label>
-                <br>
-                <textarea name="txt_file_process_prompt" id="txt_file_process_prompt">{{ txt_file_process_prompt }}</textarea>
-                <br><br>
-                <div id="div_projects" class="form-box">
-                    {% if projects|length > 0 %}
-                    <label for="projects_slc">Projeto:</label>
-                    <select name="projects_slc" id="projects_slc">
-                        {% for project in projects %}
-                        <option value="{{ project }}">{{ project }}</option>
-                        {% endfor %}
-                    </select>&nbsp;&nbsp;&nbsp;
-                    {% else %}
-                    <p id="load_message" style="font-weight: bold;">
-                        Nenhum projeto encontrado. Use a tab 'Gerenciador de conteúdo' para para adicionar projetos e
-                        contextos.
-                    </p>
-                    {% endif %}
-                    {% if contexts|length > 0 %}
-                    <label for="contexts_slc">Contexto:</label>
-                    <select name="contexts_slc" id="contexts_slc">
-                        {% for context in contexts %}
-                        <option value="{{ context }}">{{ context }}</option>
-                        {% endfor %}
-                    </select>
-                    {% else %}
-                        {% if projects|length > 0 %}
-                        <label id="load_message" style="font-weight: bold;">
-                            Nenhum contexto encontrado. Use a tab 'Gerenciador de conteúdo' para para adicionar projetos e
-                            contextos.
-                        </label>
-                        {% endif %}
-                    {% endif %}
-                </div>
-                <br><br>
-                <button type="submit" name="load_process_file_btn" class="btn-proceed-style">Processar</button>&nbsp;&nbsp;&nbsp;
-            </div>
-            <br><br>
-        </div>
-       
+     
         <div class="content" id="divProjectAnalysis">
             <input type="hidden" id="choosen_project_code" name="choosen_project_code" value="{{ choosen_project_code }}">
             <h2 style="display: inline-block;">Análise de código/projeto com GenAI</h2>
@@ -223,18 +177,24 @@
                     {% endfor %}
                 </select>
                 <br>
-                <label for="txt_code_analysis" style="color: black; font-weight: bold;">Pedido:</label>
+                <label for="txt_prompt_analysis" style="color: black; font-weight: bold;">Pedido:</label>
                 <br>
-                <textarea name="txt_code_analysis" id="txt_code_analysis">{{ txt_code_analysis }}</textarea>
+                <textarea name="txt_prompt_analysis" id="txt_prompt_analysis">{{ txt_prompt_analysis }}</textarea>
                 <br><br>
-                <button type="submit" name="analize_code_btn" class="btn-generate-style">Analisar</button>&nbsp;&nbsp;&nbsp;
-                <button type="submit" name="generate_code_btn" class="btn-generate-style">Gerar</button>&nbsp;&nbsp;&nbsp;
-                <label for="chk_include_txt_midia" style="color: black; font-weight: bold;">Incluir texto e midia</label>
-                    {% if chk_include_txt_midia == "true" %}
-                    <input type="checkbox" id="chk_include_txt_midia" name="chk_include_txt_midia" value="chk_include_txt_midia" checked>
+                <button type="submit" name="list_code_btn" class="btn-general-style">Listar</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="analize_code_btn" class="btn-proceed-style">Analisar</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="generate_code_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
+                <label for="chk_include_media_file" style="color: black; font-weight: bold;">Incluir media</label>
+                    {% if include_media_file == "true" %}
+                    <input type="checkbox" id="chk_include_media_file" name="chk_include_media_file" value="true" checked>
                     {% else %}
-                    <input type="checkbox" id="chk_include_txt_midia" name="chk_include_txt_midia" value="chk_include_txt_midia">
+                    <input type="checkbox" id="chk_include_media_file" name="chk_include_media_file" value="false">
                     {% endif %}
+                <br><br>
+                <button type="submit" name="list_long_code_btn" class="btn-general-style">Listar</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="generate_code_long_output_btn" class="btn-proceed-style">Gerar para saídas grandes</button>&nbsp;&nbsp;&nbsp;
+                <input type="number" id="lines_chunck_size" name="lines_chunck_size" value="{{ lines_chunck_size }}" min="1" max="1000">&nbsp;&nbsp;
+                <label for="lines_chunck_size" style="color: black;">Linhas por prompt</label>
                 {% endif %}
             </div>
             <br>
@@ -339,29 +299,44 @@
 
         const clicked_button = document.getElementById("clicked_button");
         const choosen_project = document.getElementById("choosen_project");
-        const chk_include_ctx = document.getElementById("chk_include_ctx");
+        const include_file_context = document.getElementById("include_file_context");
         const div_projects = document.getElementById("div_projects");
         // projects_slc doesn't exist if there are no projects
         const chk_include_context = document.getElementById("chk_include_context");
         function chk_include_context_changed() {
             if (chk_include_context.checked) {
                 div_projects.style.display = "block";
-                chk_include_ctx.value = "true";
+                include_file_context.value = "true";
             }
             else{
                 div_projects.style.display = "none";
-                chk_include_ctx.value = "false";
+                include_file_context.value = "false";
             }
         }
         chk_include_context_changed();
         chk_include_context.addEventListener("change", chk_include_context_changed);
+
+        const chk_include_media_file = document.getElementById("chk_include_media_file");
+        if (chk_include_media_file != null){
+            const include_media_file = document.getElementById("include_media_file");
+            function chk_include_media_file_changed() {
+                if (chk_include_media_file.checked) {
+                    include_media_file.value = "true";
+                }
+                else{
+                    include_media_file.value = "false";
+                }
+            }
+            chk_include_media_file_changed();
+            chk_include_media_file.addEventListener("change", chk_include_media_file_changed);
+        }
 
         const projects_slc = document.getElementById("projects_slc");
         if (projects_slc != null) {
             projects_slc.value = choosen_project.value;
             projects_slc.addEventListener("change", function () {
                 if (choosen_project.value == this.value) return;
-                choosen_project.value == this.value;
+                choosen_project.value = this.value;
                 clicked_button.value = "projects_slc";
                 form.submit();
             });
@@ -371,6 +346,10 @@
         const projects_code_slc = document.getElementById("projects_code_slc");
         if (projects_code_slc != null && choosen_project_code.value != "") {
             projects_code_slc.value = choosen_project_code.value;
+            projects_code_slc.addEventListener("change", function () {
+                if (choosen_project_code.value == this.value) return;
+                choosen_project_code.value = this.value;
+            });
         }
         
         const step_lst = document.getElementById("step_lst");
@@ -427,6 +406,12 @@
                     return;
                 }
             }
+            else if (clicked_button.value == "analize_code_btn" || clicked_button.value == "generate_code_btn" || clicked_button.value == "generate_code_long_output_btn") {
+                if (txt_prompt_analysis.value.trim() == "") {
+                    alert("Forneça um pedido (prompt) para análise/geração!");
+                    return;
+                }
+            }
             else if (clicked_button.value == "load_prompts_btn") {
                 load_prompts_file.click();
                 return;
@@ -448,11 +433,11 @@
             this.submit();
         });
 
-        const txt_code_analysis = document.getElementById("txt_code_analysis");
-        if (txt_code_analysis != null) {
+        const txt_prompt_analysis = document.getElementById("txt_prompt_analysis");
+        if (txt_prompt_analysis != null) {
             const analysis_sugestions_slc = document.getElementById("analysis_sugestions_slc");
             analysis_sugestions_slc.addEventListener("change", function () {
-                txt_code_analysis.value = analysis_sugestions_slc.value;
+                txt_prompt_analysis.value = analysis_sugestions_slc.value;
             });        
         }
 

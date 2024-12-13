@@ -10,7 +10,7 @@ from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompt
 from gemapp.content_gen import uploadContext, contextsBucket
 
 from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwload_zip_file, excludeBlobFolder
-from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_midia_blobs, generateCode, analizeCode
+from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_media_blobs, generateCode, analizeCode, split_string_by_lines
 
 print("(RE)LOADING APPLICATION")
 app = Flask(__name__)
@@ -32,7 +32,7 @@ credentials, project_id = auth.default()
 from google.oauth2 import service_account
 
 def get_user_version_info():
-    return "User: " + get_iap_user() + " -  Version: 1.1.0"
+    return "User: " + get_iap_user() + " -  Version: 1.2.0"
     return
 
 @app.route("/getSignedUrl", methods=["GET"])
@@ -80,7 +80,7 @@ def index():
     if clicked_button == "load_context_step_btn":
         prompt = request.form.get("txt_prompt", "").strip()
         context_filename = request.form.get("contexts_slc","")
-        if context_filename == "" or request.form["chk_include_ctx"] == "false":
+        if context_filename == "" or request.form["include_file_context"] == "false":
             context_filename =""
             project_name =""
         else:
@@ -128,33 +128,19 @@ def index():
     # generate.html buttons
     elif clicked_button == "save_result_btn":
         return save_results()
+
+    elif clicked_button == "loadContextsAndCodeBuckets":
+        loadContextsBucket()
+        loadCodeBucketFolders()
+
+    # Code/Context management for Analysis/Generation
+    # Adding is done in JS in codeProjectFolderSelect.addEventListener
+    # Update UI
     elif clicked_button == "update_code_files_btn":
         return proceed("loadCodeBucketFolders", bucket=CODE_BUCKET_NAME)
     elif clicked_button == "loadCodeBucketFolders":
         loadCodeBucketFolders()
-
-    # tab de processamento de arquivos
-    elif clicked_button == "load_process_file_btn":
-        loadCodeBucketFolders()
-
-
-    elif clicked_button == "generate_code_btn":
-        return proceed("get_blobs_code", bucket=CODE_BUCKET_NAME)
-    elif clicked_button == "get_blobs_code":
-        return proceed("generateCode", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code())
-    elif clicked_button == "generateCode":
-        return renderIndex(codeGeneratedFiles = generateCode(get_blobs_code(), request.form["projects_code_slc"], request.form["txt_code_analysis"], request.form["model_name"]))
-    
-    elif clicked_button == "donwload_zip_generated_files":
-        return donwload_zip_file(request.form["choosen_project_code"])
-
-    elif clicked_button == "analize_code_btn":
-        return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
-    elif clicked_button == "get_blobs_to_analyze":
-        return proceed("analizeCode", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code())
-    elif clicked_button == "analizeCode":
-        return renderIndex(analysisResult = analizeCode(get_blobs_code(), request.form["txt_code_analysis"], request.form["model_name"]))
-    
+    # Excluiding a Project
     elif clicked_button == "exclude_code_files_btn":
         return proceed("exclude_code_files", bucket=CODE_BUCKET_NAME)
     elif clicked_button == "exclude_code_files":
@@ -162,6 +148,43 @@ def index():
         print(f"deleting GCS code bucket ({CODE_BUCKET_NAME}) folder ({folder})")
         excludeBlobFolder(codeBucket, folder)
         loadCodeBucketFolders()
+
+    # list buttons
+    elif clicked_button == "list_code_btn":
+        return renderIndex(analysisResult = list_blobs_code(get_blobs_code()))
+
+    elif clicked_button == "list_long_code_btn":
+        return renderIndex(analysisResult = list_blobs_code_with_chunks(get_blobs_code_only_txt()))
+
+    # Code/Context Analysis
+    elif clicked_button == "analize_code_btn":
+        return proceed("get_blobs_to_analyze", bucket=CODE_BUCKET_NAME)
+    elif clicked_button == "get_blobs_to_analyze":
+        return proceed("analizeCode", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code())
+    elif clicked_button == "analizeCode":
+        return renderIndex(analysisResult = analizeCode(get_blobs_code(), request.form["txt_prompt_analysis"], request.form["model_name"]))
+
+    # Code/Context Generation
+    elif clicked_button == "generate_code_btn":
+        return proceed("get_blobs_code", bucket=CODE_BUCKET_NAME)
+    elif clicked_button == "get_blobs_code":
+        return proceed("generateCode", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code())
+    elif clicked_button == "generateCode":
+        return renderIndex(codeGeneratedFiles = generateCode(get_blobs_code(), request.form["choosen_project_code"], 
+                                                request.form["txt_prompt_analysis"], request.form["model_name"]))
+    elif clicked_button == "donwload_zip_generated_files":
+        return donwload_zip_file(request.form["choosen_project_code"])
+    
+    # Code/Context Generation - long output more than 8k tokens
+    elif clicked_button == "generate_code_long_output_btn":
+        return proceed("get_blobs_code_to_long_output", bucket=CODE_BUCKET_NAME )
+    elif clicked_button == "get_blobs_code_to_long_output":
+        return proceed("generateCodeLongOutput", bucket=CODE_BUCKET_NAME, blob_list=get_blobs_code_only_txt())
+    elif clicked_button == "generateCodeLongOutput":
+        return renderIndex(codeGeneratedFiles = generateCode(get_blobs_code_only_txt(), request.form["choosen_project_code"], 
+                                                request.form["txt_prompt_analysis"], request.form["model_name"], int(request.form.get("lines_chunck_size", "100"))))
+    elif clicked_button == "donwload_zip_generated_files":
+        return donwload_zip_file(request.form["choosen_project_code"])
     
     return renderIndex()
 
@@ -171,7 +194,7 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, codeGenerated
     activeTab = request.form.get("activeTab", "tabContextGeneration")
     print("activeTab: ", activeTab)
     if not FOLDERS in gc:
-        return proceed("loadContextsBucket")
+        return proceed("loadContextsAndCodeBuckets")
     choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-002")
     txt_prompt = ""
     if keep_prompt:
@@ -185,23 +208,24 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, codeGenerated
         context_projects = gc[FOLDERS]
         contexts = gc[project]
     choosen_project_code = request.form.get("choosen_project_code", "")
-    if choosen_project_code == "" and len(global_code_projects) > 0:
+    if not choosen_project_code in global_code_projects and len(global_code_projects) > 0:
         choosen_project_code = global_code_projects[0]
     print("choosen_project_code=" + choosen_project_code + " - global_code_projects=" + str(global_code_projects))
 
     return render_template(page, user_version_info=get_user_version_info(), activeTab=activeTab, choosen_model_name=choosen_model_name, 
                         prompt_sugestions=PROMPT_SUGESTIONS,
                         txt_prompt=txt_prompt, 
-                        chk_include_ctx=request.form.get("chk_include_ctx","true"),
+                        include_file_context=request.form.get("include_file_context","true"),
                         project=project, projects=context_projects, contexts=contexts, 
                         loaded_prompts=getLoadedPrompts(),
                         projects_code=global_code_projects,
                         codeGeneratedFiles=codeGeneratedFiles,
                         choosen_project_code=choosen_project_code,
                         analysis_sugestions=ANALYSIS_SUGESTIONS,
-                        txt_code_analysis = request.form.get("txt_code_analysis", ANALYSIS_SUGESTIONS[0]),
-                        chk_include_txt_midia=request.form.get("chk_include_txt_midia","true"),
+                        txt_prompt_analysis = request.form.get("txt_prompt_analysis", ANALYSIS_SUGESTIONS[0]),
+                        include_media_file=request.form.get("include_media_file","true"),
                         analysisResult=analysisResult,
+                        lines_chunck_size=request.form.get("lines_chunck_size", "100"),
                         any_error=any_error,
                         code_bucket_name=CODE_BUCKET_NAME)
     
@@ -214,21 +238,39 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
                            user_version_info=get_user_version_info(), 
                            activeTab = request.form.get("activeTab", "tabContextGeneration"),
                            target_method=target_method, model_name=request.form.get("model_name",""), 
-                           chk_include_ctx=request.form.get("chk_include_ctx","true"),
+                           include_file_context=request.form.get("include_file_context","true"),
                            txt_prompt = request.form.get("txt_prompt", ""),
-                           choosen_project_code=request.form.get("projects_code_slc",""),
-                           txt_code_analysis = request.form.get("txt_code_analysis", ""),
-                           chk_include_txt_midia=request.form.get("chk_include_txt_midia","true"),
+                           choosen_project_code=request.form.get("choosen_project_code",""),
+                           txt_prompt_analysis = request.form.get("txt_prompt_analysis", ""),
+                           include_media_file=request.form.get("include_media_file","true"),
                            bucket=bucket,
-                           blob_list=blob_list)
+                           blob_list=blob_list,
+                           lines_chunck_size=request.form.get("lines_chunck_size", "100"))
 
 def loadCodeBucketFolders():
     print("METHOD: loadCodeBucketFolders")
     global global_code_projects
     global_code_projects = getBucketFilesAndFolders(codeBucket, False)[FOLDERS] 
-    
+
+def list_blobs_code(blob_list):
+    msg = "Arquivos que serão considerados com a seleção atual:\n\n"
+    for blob in blob_list:
+        msg += blob.name + "\n"
+    return msg
+
+def list_blobs_code_with_chunks(blob_list):
+    msg = "Arquivos que serão considerados com a seleção atual:\n\n"
+    lines_chunck_size = request.form.get("lines_chunck_size", "100")
+    for blob in blob_list:
+        msg += blob.name + " -> processado em " + str(len(split_string_by_lines(blob, int(lines_chunck_size)))) + " partes de " + lines_chunck_size + " linhas cada.\n"
+    msg+= "\n\nVerifique o tamanho da linha e o tamanho da saída esperada. Considere uma estimativa de quantas linhas resultantes serão para cada parte e seu tamanho em bytes. Divida por 4 para obter uma média de tokens. Como o limite de saída por chamada/parte é hoje de 8k tokens, considere esse limite no seu cálculo de quantidade de linhas."
+    return msg
+
+def get_blobs_code_only_txt():
+    return get_code_media_blobs(request.form["choosen_project_code"] + "/", False)
+
 def get_blobs_code():
-    return get_code_midia_blobs(request.form["projects_code_slc"] + "/", include_txt_midia=request.form.get("chk_include_txt_midia","true") == "true")
+    return get_code_media_blobs(request.form["choosen_project_code"] + "/", include_txt_media=request.form.get("include_media_file","false") == "true")
 
 if __name__ == "__main__":
     app.run(debug=True)
