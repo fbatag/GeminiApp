@@ -20,7 +20,8 @@
         <input type="hidden" id="clicked_button" name="clicked_button" value="{{target_method}}">
         <input type="hidden" id="include_file_context" name="include_file_context" value="{{ include_file_context }}">
         <input type="hidden" id="include_media_file" name="include_media_file" value="{{ include_media_file }}">
-        <input type="hidden" id="include_media_file" name="include_media_file" value="{{ lines_chunck_size }}">
+        <input type="hidden" id="lines_chunck_size" name="lines_chunck_size" value="{{ lines_chunck_size }}">
+
     {% if target_method == "regenerate" %}
         <p style="color: white; font-weight: bold;">Processando a geração usando o "{{ model_name }}" ... AGUARDE ...</p>
     {% endif %}
@@ -33,11 +34,21 @@
         <p style="color: white; font-weight: bold;">Lendo os projetos do bucket "{{ bucket }}" do GCS... AGUARDE ....</p>
     {% endif %}
 
-    {% if target_method == "analizeCode" or target_method == "generateCode" %}
-        <p style="color: white; font-weight: bold;">{{ txt_prompt_analysis }} para o projeto "{{ choosen_project_code }}", usando o "{{ model_name }}"</p>
-        <p style="color: white; font-weight: bold;">... AGUARDE ....</p>
+    {% if target_method == "get_blobs_to_analyze" or target_method == "analizeCode" %}
+    <p style="color: white; font-weight: bold;">Realizando a análise "{{ txt_prompt_analysis }}" do projeto "{{ choosen_project_code }}", usando o "{{ model_name }}"</p>
+    <p style="color: white; font-weight: bold;">... AGUARDE ....</p>
     {% endif %}
 
+    {% if target_method == "get_blobs_code" or target_method == "generateCode" %}
+    <p style="color: white; font-weight: bold;">Realizando a geração "{{ txt_prompt_analysis }}" do projeto "{{ choosen_project_code }}", usando o "{{ model_name }}"</p>
+    <p style="color: white; font-weight: bold;">... AGUARDE ....</p>
+    {% endif %}
+
+    {% if target_method == "get_blobs_code_to_long_output" or target_method == "generateCodeLongOutput" %}
+    <p style="color: white; font-weight: bold;">Realizando a geração "{{ txt_prompt_analysis }}" do projeto "{{ choosen_project_code }}", usando o "{{ model_name }}" em chamandas de {{ lines_chunck_size }} linhas por chamada</p>
+    <p style="color: white; font-weight: bold;">... AGUARDE ....</p>
+    {% endif %}
+    
     {% if target_method == "exclude_code_files" %}
     <p style="color: white; font-weight: bold;">Excluindo o projeto "{{ choosen_project_code }}" com todo seu conteúdo ... AGUARDE ....</p>
     {% endif %}
