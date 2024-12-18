@@ -181,7 +181,7 @@
                 <br>
                 <textarea name="txt_prompt_analysis" id="txt_prompt_analysis">{{ txt_prompt_analysis }}</textarea>
                 <br><br>
-                <button type="submit" name="list_code_btn" class="btn-general-style">Listar</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="list_code_btn" class="btn-general-style">Listar arquivos</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="analize_code_btn" class="btn-proceed-style">Analisar</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="generate_code_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
                 <label for="chk_include_media_file" style="color: black; font-weight: bold;">Incluir media</label>
@@ -191,7 +191,7 @@
                     <input type="checkbox" id="chk_include_media_file" name="chk_include_media_file" value="false">
                     {% endif %}
                 <br><br>
-                <button type="submit" name="list_long_code_btn" class="btn-general-style">Listar</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="list_long_code_btn" class="btn-general-style">Listar arquivos e nro partes</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="generate_code_long_output_btn" class="btn-proceed-style">Gerar para saídas grandes</button>&nbsp;&nbsp;&nbsp;
                 <input type="number" id="lines_chunck_size" name="lines_chunck_size" value="{{ lines_chunck_size }}" min="1" max="1000">&nbsp;&nbsp;
                 <label for="lines_chunck_size" style="color: black;">Linhas por prompt</label>
