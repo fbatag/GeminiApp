@@ -2,6 +2,8 @@ export PROJECT_ID=$(gcloud config get project)
 echo $PROJECT_ID
 export REGION=southamerica-east1
 export SERVICE_NAME=gemini-app-ui
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
+echo $PROJECT_NUMBER
 
 export SHARED_VPC_PROJECT_ID=shared-vpc-gem-app
 export SHARED_VPC_NAME=shared
@@ -13,11 +15,12 @@ export DEPLOY_GROUP=gcp-devops@fbatagin.altostrat.com
 
 
 gcloud services enable iam.googleapis.com
+gcloud services enable compute.googleapis.com
+gcloud services enable run.googleapis.com
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
 gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
 gcloud services enable iap.googleapis.com 
-gcloud services enable run.googleapis.com
 #gcloud services enable vision.googleapis.com # para covnersão de pdf em texto - não usado atualmente
 
 gsutil mb -b on -l $REGION gs://gen-ai-app-contexts-$PROJECT_ID
@@ -61,9 +64,7 @@ gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-contexts-$PROJECT_
 gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
    --member=group:$DEPLOY_GROUP --role=roles/storage.objectUser --project=$PROJECT_ID
 
-
-
-gcloud config set run/region $REGION
+#deploy em Cloud Run (não é necessário yaml)
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=60m \
    --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
    --service-account=gemini-app-sa@$PROJECT_ID.iam.gserviceaccount.com 
@@ -79,6 +80,7 @@ gcloud compute networks subnets create proxy-only-subnet --project=$SHARED_VPC_P
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run (essa lina é em comum com TODOS LOAD BALANCERS)
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
        --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
+
 
 #Crie um serviço de back-end para Load balancer interno
 gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
@@ -98,7 +100,7 @@ openssl req -new -x509 -key $FRONTEND_TYPE-private.pem -out $FRONTEND_TYPE-certi
 
 # Reserva o endereço IP PRIVADO
 gcloud compute addresses create $SERVICE_NAME-int-lb-$FRONTEND_TYPE --project=$PROJECT_ID --region=$REGION --purpose=SHARED_LOADBALANCER_VIP \
-   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_VPC_NAME \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_SUBNET_NAME \
    --addresses=$ILB_IP_NUMBER
 # Cria o certificado no Google Certificate Manager 
 gcloud compute ssl-certificates create $SERVICE_NAME-ssl-priv-cert-$FRONTEND_TYPE --project=$PROJECT_ID \
@@ -118,16 +120,21 @@ export CA_POOL_NAME=dev-cert
 export INTERNAL_DOMAIN=batapp.internal.batagin
 export ILB_IP_NUMBER=10.158.0.4 # rodar a reserva de IP também se for o caso
 export FRONTEND_TYPE=dm
+gcloud compute addresses create $SERVICE_NAME-int-lb-$FRONTEND_TYPE --project=$PROJECT_ID --region=$REGION --purpose=SHARED_LOADBALANCER_VIP \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_SUBNET_NAME \
+   --addresses=$ILB_IP_NUMBER
+
 gcloud privateca certificates create $SERVICE_NAME-ssl-priv-cert-$FRONTEND_TYPE --issuer-pool $CA_POOL_NAME --issuer-location $REGION \
    --use-preset-profile=leaf_server_tls --dns-san=$INTERNAL_DOMAIN \
    --cert-output-file=$FRONTEND_TYPE-certificate.crt --generate-key --key-output-file=$FRONTEND_TYPE-private.pem \
    --ca batagin --validity=P10Y 
    --name-permitted-dns=batapp.internal.batagin
    --subject=/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=batapp.internal.batagin
-
-                 
-
-# Repetir os dois comandos acima para esses novos valores
+               
+# Repetir os 3 comandos:
+   # "Cria o certificado no Google Certificate Manager"
+   # "Cria o frontend (LB) HTTPS-proxy" e acima para esses novos valores
+   # Reserva o IP (somente para garantir que o ip vai ficar fixo - não é obrigatório)
 
 # Configurar o IAP para o LB
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')

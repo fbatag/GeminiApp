@@ -4,12 +4,18 @@ export REGION=southamerica-east1
 export SERVICE_NAME=gemini-app-ui
 export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
 echo $PROJECT_NUMBER
+
+export SHARED_VPC_PROJECT_ID=$PROJECT_ID # supposing it is not a shared VPC
+export SHARED_VPC_NAME=default
+export SHARED_SUBNET_NAME=default
+
 export SUPPORT_EMAIL=dev@fbatagin.altostrat.com
 export USER_GROUP=gcp-devops@fbatagin.altostrat.com
 export DEPLOY_GROUP=gcp-devops@fbatagin.altostrat.com
 
-gcloud config set run/region $REGION
+
 gcloud services enable iam.googleapis.com
+gcloud services enable compute.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable storage-component.googleapis.com
 gcloud services enable aiplatform.googleapis.com
@@ -68,12 +74,12 @@ gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2
 # CONFIGURAR A autenticação com IAP (Criar o LB e configurar)
 
 # LOAD BALANCER - INTERNO 
-gcloud services enable compute.googleapis.com
-gcloud compute networks create default --project=$PROJECT_ID --subnet-mode=custom --mtu=1460 --bgp-routing-mode=global
-gcloud compute networks subnets create default --project=$PROJECT_ID --network=default --region=$REGION --range=10.0.0.0/24
+gcloud compute networks create $SHARED_VPC_NAME --project=$PROJECT_ID --subnet-mode=custom --mtu=1460 --bgp-routing-mode=global
+gcloud compute networks subnets create $SHARED_SUBNET_NAME --project=$PROJECT_ID --network=$SHARED_VPC_NAME --region=$REGION --range=10.0.0.0/24
 # Proxy-only subnet é uma necessiadae do LBs baseados em Envoy proxy. Assim teoricamente, os INTERNAL e EXTERNAL (não MANAGED) não necessitariam. Mas eu não testei
 # Eles são o Classic (HTTP e TCP) e TCP passthroough - ref: https://cloud.google.com/load-balancing/docs/choosing-load-balancer
-gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID --network=default --region=$REGION --range=10.255.0.0/24 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
+gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID --network=$SHARED_VPC_NAME \
+	--region=$REGION --range=10.255.0.0/24 --purpose=REGIONAL_MANAGED_PROXY --role=ACTIVE
 
 # Crie um NEG sem servidor para o app sem servidor para o Cloud Run (essa lina é em comum com TODOS LOAD BALANCERS)
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
@@ -86,24 +92,55 @@ gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancin
 gcloud compute backend-services add-backend $SERVICE_NAME-backend-int --region=$REGION \
     --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
 
-export ILB_IP_NUMBER=10.0.0.10
-openssl genrsa -out private.key 2048
-openssl req -new -x509 -key private.key -out certificate.crt -days 3650 -subj "/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=$ILB_IP_NUMBER"
-gcloud compute ssl-certificates create $SERVICE_NAME-ssl-priv-cert --project=$PROJECT_ID --certificate=certificate.crt --private-key=private.key --region=$REGION
-
 # Cria o frontend (LB) 
-gcloud compute url-maps create $SERVICE_NAME-int-lb  --default-service $SERVICE_NAME-backend-int --region=$REGION
-# Cria o frontend (LB) HTTPS-proxy
-gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy --region=$REGION --url-map=$SERVICE_NAME-int-lb   --ssl-certificates=$SERVICE_NAME-ssl-priv-cert
+gcloud compute url-maps create $SERVICE_NAME-int-lb --default-service $SERVICE_NAME-backend-int --region=$REGION
 
+export ILB_IP_NUMBER=10.0.0.15
+export FRONTEND_TYPE=ip
+openssl genrsa -out $FRONTEND_TYPE-private.pem 2048
+openssl req -new -x509 -key $FRONTEND_TYPE-private.pem -out $FRONTEND_TYPE-certificate.crt -days 3650 -subj "/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=$ILB_IP_NUMBER"
+
+# Reserva o endereço IP PRIVADO
+gcloud compute addresses create $SERVICE_NAME-int-lb-$FRONTEND_TYPE --project=$PROJECT_ID --region=$REGION --purpose=SHARED_LOADBALANCER_VIP \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_SUBNET_NAME \
+   --addresses=$ILB_IP_NUMBER
+# Cria o certificado no Google Certificate Manager 
+gcloud compute ssl-certificates create $SERVICE_NAME-ssl-priv-cert-$FRONTEND_TYPE --project=$PROJECT_ID \
+   --certificate=$FRONTEND_TYPE-certificate.crt --private-key=$FRONTEND_TYPE-private.pem --region=$REGION
+
+# Cria o frontend (LB) HTTPS-proxy
+gcloud compute target-https-proxies create $SERVICE_NAME-https-proxy-$FRONTEND_TYPE --region=$REGION \
+   --url-map=$SERVICE_NAME-int-lb --ssl-certificates=$SERVICE_NAME-ssl-priv-cert-$FRONTEND_TYPE
 # Reserva o IP (somente para garantir que o ip vai ficar fixo - não é obrigatório)
-gcloud compute addresses create $SERVICE_NAME-int-lb-ip --project=$PROJECT_ID --region=$REGION --purpose=GCE_ENDPOINT \
-   --subnet=default --addresses=$ILB_IP_NUMBER
-gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule  --region=$REGION --ports=443 --network=default --subnet=default \
-   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy --load-balancing-scheme=INTERNAL_MANAGED \
+gcloud compute forwarding-rules create $SERVICE_NAME-https-fw-rule-$FRONTEND_TYPE --project=$PROJECT_ID --region=$REGION --ports=443 \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_SUBNET_NAME \
+   --target-https-proxy-region=$REGION --target-https-proxy=$SERVICE_NAME-https-proxy-$FRONTEND_TYPE --load-balancing-scheme=INTERNAL_MANAGED \
    --allow-global-access --address=$ILB_IP_NUMBER
 
+export CA_POOL_NAME=dev-cert
+export INTERNAL_DOMAIN=batapp.internal.batagin
+export ILB_IP_NUMBER=10.158.0.4 # rodar a reserva de IP também se for o caso
+export FRONTEND_TYPE=dm
+gcloud compute addresses create $SERVICE_NAME-int-lb-$FRONTEND_TYPE --project=$PROJECT_ID --region=$REGION --purpose=SHARED_LOADBALANCER_VIP \
+   --network=projects/$SHARED_VPC_PROJECT_ID/global/networks/$SHARED_VPC_NAME \
+   --subnet=projects/$SHARED_VPC_PROJECT_ID/regions/$REGION/subnetworks/$SHARED_SUBNET_NAME \
+   --addresses=$ILB_IP_NUMBER
+
+gcloud privateca certificates create $SERVICE_NAME-ssl-priv-cert-$FRONTEND_TYPE --issuer-pool $CA_POOL_NAME --issuer-location $REGION \
+   --use-preset-profile=leaf_server_tls --dns-san=$INTERNAL_DOMAIN \
+   --cert-output-file=$FRONTEND_TYPE-certificate.crt --generate-key --key-output-file=$FRONTEND_TYPE-private.pem \
+   --ca batagin --validity=P10Y 
+   --name-permitted-dns=batapp.internal.batagin
+   --subject=/C=BR/ST=SP/L=SaoPaulo/O=GoogleCloud/CN=batapp.internal.batagin
+               
+# Repetir os 3 comandos:
+   # "Cria o certificado no Google Certificate Manager"
+   # "Cria o frontend (LB) HTTPS-proxy" e acima para esses novos valores
+   # Reserva o IP (somente para garantir que o ip vai ficar fixo - não é obrigatório)
+
 # Configurar o IAP para o LB
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
+echo $PROJECT_NUMBER
 gcloud beta services identity create --service=iap.googleapis.com --project=$PROJECT_ID
 gcloud run services add-iam-policy-binding $SERVICE_NAME --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com  \
 --role='roles/run.invoker' --region $REGION
