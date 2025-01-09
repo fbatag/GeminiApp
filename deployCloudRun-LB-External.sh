@@ -77,7 +77,7 @@ export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME-glb-ip --f
 echo $LB_IP_NUMBER
 
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend-ext --load-balancing-scheme=EXTERNAL_MANAGED --global --protocol=HTTPS
+gcloud compute backend-services create $SERVICE_NAME-backend-ext --load-balancing-scheme=EXTERNAL_MANAGED --global --protocol=HTTPS --port-name=http
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
 gcloud compute backend-services add-backend $SERVICE_NAME-backend-ext  --global \
        --network-endpoint-group=$SERVICE_NAME-serverless-neg   --network-endpoint-group-region=$REGION

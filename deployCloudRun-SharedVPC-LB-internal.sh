@@ -83,7 +83,7 @@ gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --reg
 
 
 #Crie um serviço de back-end para Load balancer interno
-gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
+gcloud compute backend-services create $SERVICE_NAME-backend-int --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS --port-name=http
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
 gcloud compute backend-services add-backend $SERVICE_NAME-backend-int --region=$REGION \
     --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION

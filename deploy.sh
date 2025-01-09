@@ -133,7 +133,7 @@ gcloud compute networks subnets create proxy-only-subnet --project=$PROJECT_ID -
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
     --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS
+gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=INTERNAL_MANAGED --region=$REGION --protocol=HTTPS --port-name=http
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
 gcloud compute backend-services add-backend $SERVICE_NAME-backend --region=$REGION \
     --network-endpoint-group=$SERVICE_NAME-serverless-neg --network-endpoint-group-region=$REGION
@@ -168,7 +168,7 @@ export LB_IP_NUMBER=$(gcloud compute addresses describe $SERVICE_NAME--lb-ip --f
 gcloud compute network-endpoint-groups create $SERVICE_NAME-serverless-neg --region=$REGION \
        --network-endpoint-type=serverless --cloud-run-service=$SERVICE_NAME
 #Crie um serviço de back-end
-gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=EXTERNAL_MANAGED --global --protocol=HTTPS
+gcloud compute backend-services create $SERVICE_NAME-backend --load-balancing-scheme=EXTERNAL_MANAGED --global --protocol=HTTPS --port-name=http
 # Adicione o NEG sem servidor como um back-end ao serviço de back-end
 gcloud compute backend-services add-backend $SERVICE_NAME-backend  --global \
        --network-endpoint-group=$SERVICE_NAME-serverless-neg   --network-endpoint-group-region=$REGION
