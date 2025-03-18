@@ -1,4 +1,4 @@
-import datetime
+import datetime, os
 from flask import Flask, request, render_template
 #from flask import session, redirect, url_for
 import vertexai
@@ -13,6 +13,8 @@ from gemapp.utils import FOLDERS, get_iap_user, getBucketFilesAndFolders, donwlo
 from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_media_blobs, generateCode, analizeCode, split_string_by_lines
 
 print("(RE)LOADING APPLICATION")
+local_cred_file = os.environ.get("HOME") +"/.config/gcloud/gemini-app-sa.json"
+print(local_cred_file)
 app = Flask(__name__)
 
 if IS_GAE_ENV_STD:
@@ -33,7 +35,6 @@ from google.oauth2 import service_account
 
 def get_user_version_info():
     return "User: " + get_iap_user() + " -  Version: 1.2.1"
-    return
 
 @app.route("/getSignedUrl", methods=["GET"])
 def getSignedUrl():
@@ -54,7 +55,8 @@ def getSignedUrlParam(dest_bucket, object_destination, filetype):
     if request.url_root == 'http://127.0.0.1:5000/':
         print("RUNNING LOCAL")
         signeUrl = blob.generate_signed_url(method='PUT', version="v4", expiration=expiration, content_type=filetype, 
-                                    credentials=service_account.Credentials.from_service_account_file("../sa.json"),
+                                    credentials=service_account.Credentials.from_service_account_file(local_cred_file),
+                                    #credentials=credentials,
                                     headers={"X-Goog-Content-Length-Range": "1,5000000000", 'Content-Type': filetype})
     else:
         print("CREDENTIALS")
