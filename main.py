@@ -197,7 +197,7 @@ def renderIndex(page="index.html", any_error="", keep_prompt=True, codeGenerated
     print("activeTab: ", activeTab)
     if not FOLDERS in gc:
         return proceed("loadContextsAndCodeBuckets")
-    choosen_model_name = request.form.get("model_name", "gemini-1.5-flash-002")
+    choosen_model_name = request.form.get("model_name", "gemini-2.0-flash-001")
     txt_prompt = ""
     if keep_prompt:
         txt_prompt = request.form.get("txt_prompt", "")

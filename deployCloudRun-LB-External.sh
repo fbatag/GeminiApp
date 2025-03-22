@@ -60,7 +60,7 @@ gcloud storage buckets add-iam-policy-binding gs://gen-ai-app-code-$PROJECT_ID \
 gcloud config set run/region $REGION
 
 gcloud run deploy $SERVICE_NAME --region=$REGION --source . --memory=4Gi --cpu=2 --min-instances=1 --max-instances=1 --concurrency=100 --timeout=60m \
-   --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet \
+   --project=$PROJECT_ID --ingress=internal-and-cloud-load-balancing --no-allow-unauthenticated  --cpu-throttling --quiet 
    
 # deploys seguintes (omitir o service account)
 # --cpu-throttling (CPU not allways allocated) and -no-allow-unauthenticated are default
