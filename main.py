@@ -34,7 +34,7 @@ credentials, project_id = auth.default()
 from google.oauth2 import service_account
 
 def get_user_version_info():
-    return "User: " + get_iap_user() + " -  Version: 1.2.1"
+    return "User: " + get_iap_user() + " -  Version: 1.3.0"
 
 @app.route("/getSignedUrl", methods=["GET"])
 def getSignedUrl():

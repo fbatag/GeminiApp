@@ -1,0 +1,89 @@
+# ATENÇÃO: Antes de rodar, definir e substituir os nomes <nome do projeto>, <nome do grupo uauário>, <nome aplicação>, <nome do bucket>
+
+# Rodar esse comando se a região já estiver configurada (conferir com gcloud conf list)
+export PROJECT_ID=$(gcloud config get project)
+
+# Ou setar manualmente
+export PROJECT_ID=<nome do projeto>
+
+# confirmar que foi setado
+echo $PROJECT_ID
+
+# Definir o projeto como padrão
+gcloud config set $PROJECT_ID
+
+# definir a região odne a aplicação vai rodar
+export REGION=europe-west2
+
+# definir o user do IAP (só uma formalidade)
+export SUPPORT_EMAIL=pmodesto@careplus.com.br
+
+# Defini um grupo or usuário que terá acesso a essa aplicação
+export USER_GROUP=<nome do grupo usuário>@careplus.com.br
+
+# Definir uma nome para a aplicação
+export SERVICE_NAME=<nome aplicação>
+
+# Definir o nome do bucket sendo utilizado pela aplicação
+export APP_BUCKET_NAME=<nome do bucket>
+
+# definir noe do usuário com permissão de fazer o deploy na aplicação (já tomei a liberdade de colocar o nome do Pedro)
+export DEPLOY_USER=pmodesto@careplus.com.br
+
+# habilitar as APIs do projeto (tomei a liberdade de incluir todas que seriam interessantes) - pode ser necessário pedir para alguém com permissão mais elevada
+gcloud services enable iam.googleapis.com
+gcloud services enable storage-component.googleapis.com
+gcloud services enable aiplatform.googleapis.com
+gcloud services enable cloudbuild.googleapis.com # para o Cloud Run
+gcloud services enable iap.googleapis.com 
+gcloud services enable run.googleapis.com
+
+# Criar a Service account que será usada para rodar a aplicação e conceder as permissões necessárias
+
+gcloud iam service-accounts create $SERVICE_NAME-sa \
+--display-name "Gemini App Generator Service Account" \
+--project $PROJECT_ID
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:$SERVICE_NAME-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role roles/aiplatform.user
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:$SERVICE_NAME-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role roles/iam.serviceAccountTokenCreator
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member serviceAccount:$SERVICE_NAME-sa@$PROJECT_ID.iam.gserviceaccount.com \
+--role roles/serviceusage.serviceUsageConsumer
+
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID | grep projectNumber | grep -Eo '[0-9]+')
+echo $PROJECT_NUMBER
+# este comando dá permissao a service account de compute default do projeto para subir como SA de um serviço de cloud Run (Apesar de não ser a default que usaremos, o primeiro deploy do serviço pede isso)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member=serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+    --role=roles/run.sourceDeveloper
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member=serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+    --role=roles/run.builder
+
+# este comando dá permissão de acessar o bucket usado pela aplicação para a Service Account que será usada para r5odar o serviço deploiado no cloud Run
+gcloud storage buckets add-iam-policy-binding gs://APP_BUCKET_NAME \
+    --member=serviceAccount:$SERVICE_NAME-sa@$PROJECT_ID.iam.gserviceaccount.com \
+    --role=roles/storage.objectUser --project=$PROJECT_ID
+# Permissão ao Pedro para poder usar essa Service Account acima para fazer o primeiro deploy da aplicação no Cloud Run
+gcloud iam service-accounts add-iam-policy-binding $PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+  --member="user:$DEPLOY_USER" \
+  --role="roles/iam.serviceAccountUser"
+
+# 2 Permissões necessário para o Pedro deploiar um serviço no Cloud Run (alguḿas ele provavelmente já tem)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member user:$DEPLOY_USER --role=roles/run.sourceDeveloper
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member user:$DEPLOY_USER --role=roles/run.builder
+
+# Permissão ao Pedro para poder usar associar essa Service Account a aplicaçã odno Cloud Run
+gcloud iam service-accounts add-iam-policy-binding $SERVICE_NAME-sa@$PROJECT_ID.iam.gserviceaccount.com \
+  --member="user:$DEPLOY_USER" \
+  --role="roles/iam.serviceAccountUser"
+
+
