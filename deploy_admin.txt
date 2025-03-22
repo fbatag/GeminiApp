@@ -1,4 +1,4 @@
-# ATENÇÃO: Antes de rodar, definir e substituir os nomes <nome do projeto>, <nome do grupo uauário>, <nome aplicação>, <nome do bucket>
+# ATENÇÃO: Antes de rodar, definir e substituir os nomes <nome do projeto>, <nome aplicação>, <nome do bucket>
 
 # Rodar esse comando se a região já estiver configurada (conferir com gcloud conf list)
 export PROJECT_ID=$(gcloud config get project)
@@ -14,12 +14,6 @@ gcloud config set $PROJECT_ID
 
 # definir a região odne a aplicação vai rodar
 export REGION=europe-west2
-
-# definir o user do IAP (só uma formalidade)
-export SUPPORT_EMAIL=pmodesto@careplus.com.br
-
-# Defini um grupo or usuário que terá acesso a essa aplicação
-export USER_GROUP=<nome do grupo usuário>@careplus.com.br
 
 # Definir uma nome para a aplicação
 export SERVICE_NAME=<nome aplicação>
