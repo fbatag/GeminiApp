@@ -9,7 +9,7 @@ CODE_BUCKET_NAME = os.environ.get("CODE_BUCKET_NAME", "gen-ai-app-code-") + stor
 codeBucket  = storage_client.bucket(CODE_BUCKET_NAME, storage_client.project)
 print(CODE_BUCKET_NAME)
 
-PROG_LANGS = ("html", "py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m")
+PROG_LANGS = ("html", "py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m", "pas", "dfm", "dpr", "resv")
 MEDIA_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg","video/mov","video/avi","video/x-flv","video/mpg","video/webm", "video/wmv","video/3gpp" ]
 TXT_FILES = ["md", "txt"]
 

@@ -14,7 +14,6 @@ from gemapp.code_analysis import CODE_BUCKET_NAME, codeBucket, get_code_media_bl
 
 print("(RE)LOADING APPLICATION")
 local_cred_file = os.environ.get("HOME") +"/.config/gcloud/gemini-app-sa.json"
-print(local_cred_file)
 app = Flask(__name__)
 
 if IS_GAE_ENV_STD:
@@ -146,7 +145,7 @@ def index():
     elif clicked_button == "exclude_code_files_btn":
         return proceed("exclude_code_files", bucket=CODE_BUCKET_NAME)
     elif clicked_button == "exclude_code_files":
-        folder = request.form["projects_code_slc"]
+        folder = request.form["choosen_project_code"]
         print(f"deleting GCS code bucket ({CODE_BUCKET_NAME}) folder ({folder})")
         excludeBlobFolder(codeBucket, folder)
         loadCodeBucketFolders()
@@ -255,10 +254,13 @@ def loadCodeBucketFolders():
     global_code_projects = getBucketFilesAndFolders(codeBucket, False)[FOLDERS] 
 
 def list_blobs_code(blob_list):
-    msg = "Arquivos que serão considerados com a seleção atual:\n\n"
+    msg = " arquivos serão considerados com a seleção atual:\n\n"
+    total = 0
     for blob in blob_list:
         msg += blob.name + "\n"
-    return msg
+        total += 1
+        # converta a vari[ável total apra string
+    return str(total) + msg
 
 def list_blobs_code_with_chunks(blob_list):
     msg = "Arquivos que serão considerados com a seleção atual:\n\n"

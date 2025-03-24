@@ -38,6 +38,7 @@ def getGenerativeModel(model_name):
         generation_config = generation_config_flash
     else:
         generation_config = generation_config_pro
+
     return GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
 
 def get_iap_user():
