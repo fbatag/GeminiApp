@@ -1,8 +1,9 @@
 import os
-from vertexai.generative_models import Part
 from google.cloud import storage
 
-from .utils import getGenerativeModel, clearDir, get_temp_user_folder, save_local_file, zip_folder, get_blobs, getCodeFileExtenstion
+from .utils import clearDir, get_temp_user_folder, save_local_file, zip_folder, get_blobs
+from .generate_genai import getPartClass as getPart_genai, generate as generate_genai
+from .generate_vertex import getPartClass as getPart_vertex, generate as generate_vertex
 
 storage_client = storage.Client()
 CODE_BUCKET_NAME = os.environ.get("CODE_BUCKET_NAME", "gen-ai-app-code-") + storage_client.project
@@ -27,17 +28,34 @@ def getBlobType(blob):
 def getBlobUri(blob):
     return "gs://" + CODE_BUCKET_NAME + "/" + blob.name
 
-def analizeCode(blobs_to_analyze, prompt, model_name):
+def generate(model_name, parts, useVertex):
+    print("METHOD: generate - " + str(useVertex))
+    if useVertex:
+        return generate_vertex(model_name, parts)
+    else:
+        return generate_genai(model_name, parts)
+      
+def initializeParts(prompt, useVertex):
+    if useVertex:
+        return [ prompt ]
+    else:
+        return [ getPart_genai().from_text(text=prompt) ]
+    
+def getPartFromBlob(blob, useVertex):
+    if useVertex:
+        return getPart_vertex().from_uri(uri=getBlobUri(blob), mime_type=getBlobType(blob)) 
+    else:
+        return getPart_genai().from_uri(file_uri=getBlobUri(blob), mime_type=getBlobType(blob))
+
+def analizeCode(blobs_to_analyze, human_prompt, model_name, useVertex = False):
     print("METHOD: analizeCode")
-    model = getGenerativeModel(model_name)
-    parts = [prompt]
+    parts = initializeParts(human_prompt, useVertex)
     msg = "\n\n***** Arquivos considerados na análise: *****\n\n"
     for blob in blobs_to_analyze:
-        msg += blob.content_type + " - " + blob.name + "\n"
-        parts.append(Part.from_uri(uri=getBlobUri(blob), mime_type=getBlobType(blob)))
+        msg += getBlobType(blob) + " - " + blob.name + "\n"
+        parts.append(getPartFromBlob(blob, useVertex))
     print(msg)
-    generatedFiles = model.generate_content(parts)
-    return generatedFiles.text + msg
+    return generate(model_name, parts, useVertex) + msg
 
 def getTargetName(blob):
     sub_folders = blob.name.split("/")
@@ -45,10 +63,9 @@ def getTargetName(blob):
     print("Code: " + blob.name + " - Generated: " + generated_filename)
     return generated_filename, sub_folders[:-1]
     
-def generateCode(blobs_code, folder, human_prompt, model_name, lines_chunck_size = 0):
+def generateCode(blobs_code, folder, human_prompt, model_name, lines_chunck_size = 0, useVertex = False):
     print("METHOD: generateCode - lines_chunck_size: " + str(lines_chunck_size))
     generatedFiles = []
-    model = getGenerativeModel(model_name)
     temp_user_folder = get_temp_user_folder()
     print("Cleaning temp_user_folder: " + temp_user_folder)
     clearDir(os.path.join(temp_user_folder,folder))
@@ -56,9 +73,9 @@ def generateCode(blobs_code, folder, human_prompt, model_name, lines_chunck_size
         #try:
         genFilename, sub_folder = getTargetName(blob)
         if lines_chunck_size == 0:
-            response = codeFileGeneration(blob, human_prompt, model)
+            response = codeFileGeneration(blob, human_prompt, model_name, useVertex)
         else:
-            response = codeFileGenerationLongOutput(blob, human_prompt, model, lines_chunck_size)
+            response = codeFileGenerationLongOutput(blob, human_prompt, model_name, lines_chunck_size, useVertex)
         save_local_file(genFilename, response, sub_folder)
         file_tuple = (genFilename, response)
         generatedFiles.append(file_tuple)
@@ -75,18 +92,20 @@ def generateCode(blobs_code, folder, human_prompt, model_name, lines_chunck_size
         generatedFiles.append(file_tuple)"""
     return generatedFiles
 
-def codeFileGeneration(blob, human_prompt, model):
+def codeFileGeneration(blob, human_prompt, model_name, useVertex):
     print("METHOD: codeFileGeneration")
-    prompt = [human_prompt, Part.from_uri(uri=getBlobUri(blob), mime_type=getBlobType(blob))]
-    return model.generate_content(prompt).text
+    parts = initializeParts(human_prompt, useVertex)
+    parts.append(getPartFromBlob(blob, useVertex))
+    return generate(model_name, parts, useVertex)
 
-def codeFileGenerationLongOutput(blob, human_prompt, model, lines_chunck_size):
+def codeFileGenerationLongOutput(blob, human_prompt, model_name, lines_chunck_size, useVertex):
     print("METHOD: codeFileGenerationLongOutput")
     chunks = split_string_by_lines(blob, lines_chunck_size)
     response = ""
     for chunk in chunks:
-        prompt = [human_prompt, Part.from_text(chunk)]
-        response += model.generate_content(prompt).text + "\n\n"
+        parts = initializeParts(human_prompt, useVertex)
+        parts.append(getPartFromBlob(blob, useVertex))
+        response += generate(model_name, parts, useVertex) + "\n\n"
     title = "O arquivo " + blob.name + " foi processado em " + str(len(chunks)) + " partes de " + str(lines_chunck_size) + " linhas cada.\n\n"
     return title + response
 

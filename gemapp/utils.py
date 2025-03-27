@@ -2,44 +2,8 @@ import os
 import zipfile
 import shutil
 from flask import send_file, request
-from vertexai.generative_models import GenerativeModel
-import vertexai.preview.generative_models as generative_models
 
 FOLDERS =  "!<FOLDERS>!"
-
-generation_config_flash = {
-    "max_output_tokens": 8192,
-    "temperature": 0.5,
-    "top_p": 0.95,
-}
-
-generation_config_pro = {
-    "max_output_tokens": 8192, # o modelo responde 32768, mas tanto a doc quanto a execução não aceita esse valor
-    "temperature": 0.5,
-    "top_p": 0.95,
-}
-safety_settings = {
-    generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-}
-
-# ATENÇÃO: Os parãmetros abaixo somente funcionam com prompt texto. Se um arquivo é incluido, dai erro "400 Request contains an invalid argument." 
-#safety_settings_none = {
- #   #generative_models.HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: generative_models.HarmBlockThreshold.BLOCK_NONE,
- #   generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_NONE,
-#}
-def getGenerativeModel(model_name):
-    if model_name == "gemini-1.5-flash-002":
-        generation_config = generation_config_flash
-    else:
-        generation_config = generation_config_pro
-
-    return GenerativeModel(model_name, generation_config=generation_config, safety_settings=safety_settings)
 
 def get_iap_user():
     user = request.headers.get('X-Goog-Authenticated-User-Email', "None")

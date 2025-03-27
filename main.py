@@ -1,7 +1,7 @@
 import datetime, os
 from flask import Flask, request, render_template
 #from flask import session, redirect, url_for
-import vertexai
+
 from google.appengine.api import wrap_wsgi_app
 
 #from google.appengine.ext import db, ndb
@@ -19,7 +19,6 @@ app = Flask(__name__)
 if IS_GAE_ENV_STD:
     app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
 
-vertexai.init()
 global_code_projects =[]
 
 PROMPT_SUGESTIONS=["", "Crie casos de teste a partir do sistema descrito no video:", "Crie casos de teste a partir do sistema descrito no documento:"]

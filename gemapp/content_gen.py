@@ -1,9 +1,9 @@
 import os, json
 from flask import request, render_template
-from vertexai.generative_models import Part
 from google.cloud import storage
 
-from .utils import get_iap_user, getGenerativeModel, getBucketFilesAndFolders, save_cli_file
+from .utils import get_iap_user, getBucketFilesAndFolders, save_cli_file
+from .generate_vertex import getGenerativeModel, getPartClass as getPart_vertex
 
 storage_client = storage.Client()
 CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contexts-") + storage_client.project
@@ -161,7 +161,7 @@ def prepare_prompt(promptItem):
     #print("file_type: ", file_type)
     print(blob)
     print("prompt: ", prompt, " - uri: ", uri, " - blob.content_type: ", blob.content_type)
-    return [Part.from_uri( uri=uri, mime_type=blob.content_type), prompt]
+    return [getPart_vertex().from_uri( uri=uri, mime_type=blob.content_type), prompt]
     #return [prompt, Part.from_uri( uri=uri, mime_type=file_type)]
 
 def save_results():
