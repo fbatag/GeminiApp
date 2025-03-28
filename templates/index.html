@@ -27,8 +27,8 @@
         <br>
         <input type="hidden" id="activeTab" name="activeTab" value="{{ activeTab }}">
         <div class="tabs">
-            <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
             <div class="tab" id="tabProjectAnalysis" data-tab="divProjectAnalysis">Análise ou geração de projetos</div>
+            <div class="tab" id="tabContextGeneration" data-tab="divContextGeneration">Gerador de conteúdo</div>
         </div>
 
         <div class="content" id="divContextGeneration">
@@ -185,6 +185,7 @@
                 <textarea name="txt_prompt_analysis" id="txt_prompt_analysis">{{ txt_prompt_analysis }}</textarea>
                 <br><br>
                 <button type="submit" name="list_code_btn" class="btn-general-style">Listar arquivos</button>&nbsp;&nbsp;&nbsp;
+                <button type="submit" name="list_code_contexts_btn" class="btn-general-style">Listar conteúdos</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="analize_code_btn" class="btn-proceed-style">Analisar</button>&nbsp;&nbsp;&nbsp;
                 <button type="submit" name="generate_code_btn" class="btn-proceed-style">Gerar</button>&nbsp;&nbsp;&nbsp;
                 <label for="chk_include_media_file" style="color: black; font-weight: bold;">Incluir media</label>

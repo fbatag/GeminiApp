@@ -63,7 +63,7 @@ def getTargetName(blob):
     print("Code: " + blob.name + " - Generated: " + generated_filename)
     return generated_filename, sub_folders[:-1]
     
-def generateCode(blobs_code, folder, human_prompt, model_name, lines_chunck_size = 0, useVertex = False):
+def generateCode(blobs_code, folder, human_prompt, model_name, lines_chunck_size = 0, useVertex = True):
     print("METHOD: generateCode - lines_chunck_size: " + str(lines_chunck_size))
     generatedFiles = []
     temp_user_folder = get_temp_user_folder()

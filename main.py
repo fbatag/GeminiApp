@@ -152,6 +152,8 @@ def index():
     # list buttons
     elif clicked_button == "list_code_btn":
         return renderIndex(analysisResult = list_blobs_code(get_blobs_code()))
+    elif clicked_button == "list_code_contexts_btn":
+        return renderIndex(codeGeneratedFiles = list_blobs_code_contents(get_blobs_code()))
 
     elif clicked_button == "list_long_code_btn":
         return renderIndex(analysisResult = list_blobs_code_with_chunks(get_blobs_code_only_txt()))
@@ -191,7 +193,7 @@ def index():
 def renderIndex(page="index.html", any_error="", keep_prompt=True, codeGeneratedFiles=[], analysisResult=""):
     print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
     gc = get_global_contexts()
-    activeTab = request.form.get("activeTab", "tabContextGeneration")
+    activeTab = request.form.get("activeTab", "tabProjectAnalysis")
     print("activeTab: ", activeTab)
     if not FOLDERS in gc:
         return proceed("loadContextsAndCodeBuckets")
@@ -236,7 +238,7 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
             return renderIndex(any_error="show_error_no_prompts")
     return render_template("proceed.html", 
                            user_version_info=get_user_version_info(), 
-                           activeTab = request.form.get("activeTab", "tabContextGeneration"),
+                           activeTab = request.form.get("activeTab", "tabProjectAnalysis"),
                            target_method=target_method, model_name=request.form.get("model_name",""), 
                            include_file_context=request.form.get("include_file_context","true"),
                            txt_prompt = request.form.get("txt_prompt", ""),
@@ -256,11 +258,17 @@ def list_blobs_code(blob_list):
     msg = " arquivos serão considerados com a seleção atual:\n\n"
     total = 0
     for blob in blob_list:
-        msg += blob.name + "\n"
+        msg += f"{blob.name} - {blob.size} bytes\n"
         total += 1
-        # converta a vari[ável total apra string
     return str(total) + msg
 
+def list_blobs_code_contents(blob_list):
+    filesContents = []
+    for blob in blob_list:
+        file_tuple = (f"{blob.name} - {blob.size} bytes\n", blob.download_as_string().decode("latin-1"))
+        filesContents.append(file_tuple)
+    return filesContents
+    
 def list_blobs_code_with_chunks(blob_list):
     msg = "Arquivos que serão considerados com a seleção atual:\n\n"
     lines_chunck_size = request.form.get("lines_chunck_size", "100")
