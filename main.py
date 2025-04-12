@@ -2,10 +2,10 @@ import datetime, os
 from flask import Flask, request, render_template
 #from flask import session, redirect, url_for
 
-from google.appengine.api import wrap_wsgi_app
+#from google.appengine.api import wrap_wsgi_app
 
 #from google.appengine.ext import db, ndb
-from gemapp.content_gen import IS_GAE_ENV_STD, CONTEXTS_BUCKET_NAME, load_prompts, loadContextsBucket, get_global_contexts, delete_prompt_step, deleteContext, view_prompts
+from gemapp.content_gen import CONTEXTS_BUCKET_NAME, load_prompts, loadContextsBucket, get_global_contexts, delete_prompt_step, deleteContext, view_prompts #,IS_GAE_ENV_STD
 from gemapp.content_gen import create_project, isPromptRepeated, getLoadedPrompts, saveLoadedPrompts, generate, save_results, save_prompts_to_file
 from gemapp.content_gen import uploadContext, contextsBucket
 
@@ -16,8 +16,8 @@ print("(RE)LOADING APPLICATION")
 local_cred_file = os.environ.get("HOME") +"/.config/gcloud/gemini-app-sa.json"
 app = Flask(__name__)
 
-if IS_GAE_ENV_STD:
-    app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
+#if IS_GAE_ENV_STD:
+#    app.wsgi_app = wrap_wsgi_app(app.wsgi_app)
 
 global_code_projects =[]
 
@@ -193,7 +193,7 @@ def index():
 def renderIndex(page="index.html", any_error="", keep_prompt=True, codeGeneratedFiles=[], analysisResult=""):
     print("METHOD: renderIndex -> " + any_error + " keep_prompt: " + str(keep_prompt))
     gc = get_global_contexts()
-    activeTab = request.form.get("activeTab", "tabProjectAnalysis")
+    activeTab = request.form.get("activeTab", "tabContextGeneration")
     print("activeTab: ", activeTab)
     if not FOLDERS in gc:
         return proceed("loadContextsAndCodeBuckets")
@@ -238,7 +238,7 @@ def proceed(target_method="regenerate", bucket=CONTEXTS_BUCKET_NAME, blob_list=[
             return renderIndex(any_error="show_error_no_prompts")
     return render_template("proceed.html", 
                            user_version_info=get_user_version_info(), 
-                           activeTab = request.form.get("activeTab", "tabProjectAnalysis"),
+                           activeTab = request.form.get("activeTab", "tabContextGeneration"),
                            target_method=target_method, model_name=request.form.get("model_name",""), 
                            include_file_context=request.form.get("include_file_context","true"),
                            txt_prompt = request.form.get("txt_prompt", ""),

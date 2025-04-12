@@ -10,7 +10,7 @@ CONTEXTS_BUCKET_NAME = os.environ.get("CONTEXTS_BUCKET_NAME", "gen-ai-app-contex
 print(CONTEXTS_BUCKET_NAME)
 contextsBucket = storage_client.bucket(CONTEXTS_BUCKET_NAME, storage_client.project)
 
-IS_GAE_ENV_STD = os.getenv('GAE_ENV', "") == "standard"
+#IS_GAE_ENV_STD = os.getenv('GAE_ENV', "") == "standard"
 
 # Inicializa o array para armazenar os dados
 global_loaded_prompts = dict()
@@ -25,14 +25,14 @@ def getLoadedPrompts():
     user = get_iap_user()
     if user not in global_loaded_prompts:
         loadedPrompts = []
-        if IS_GAE_ENV_STD:
-            cachedLoadedPrompts = memcache.get(user)
-            if cachedLoadedPrompts is None:
-                #memcache.add(user, db.model_from_protobuf(loadedPrompts), 14400) # four hours expiration
-                memcache.add(user, json.dumps(loadedPrompts), 14400) # four hours expiration
-            else:
-                #loadedPrompts = db.model_from_protobuf(cachedLoadedPrompts)
-                loadedPrompts = json.loads(cachedLoadedPrompts)
+#        if IS_GAE_ENV_STD:
+#            cachedLoadedPrompts = memcache.get(user)
+#            if cachedLoadedPrompts is None:
+#                #memcache.add(user, db.model_from_protobuf(loadedPrompts), 14400) # four hours expiration
+#                memcache.add(user, json.dumps(loadedPrompts), 14400) # four hours expiration
+#            else:
+#                #loadedPrompts = db.model_from_protobuf(cachedLoadedPrompts)
+#                loadedPrompts = json.loads(cachedLoadedPrompts)
         global_loaded_prompts[user] = loadedPrompts
     return global_loaded_prompts[user]
 

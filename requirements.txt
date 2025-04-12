@@ -4,4 +4,5 @@ Flask
 google-cloud-aiplatform
 google-cloud-vision
 google-cloud-storage
-appengine-python-standard
+#appengine-python-standard
+google-genai
