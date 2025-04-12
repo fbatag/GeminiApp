@@ -11,7 +11,7 @@ codeBucket  = storage_client.bucket(CODE_BUCKET_NAME, storage_client.project)
 print(CODE_BUCKET_NAME)
 
 PROG_LANGS = ("html", "py", "java", "js", "ts", "cs", "c", "cpp", "go", "rb", "php", "kt", "rs", "scala", "pl", "dart", "swift", "clj", "erl", "m", "pas", "dfm", "dpr", "resv")
-MEDIA_SUPPORTED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg","video/mov","video/avi","video/x-flv","video/mpg","video/webm", "video/wmv","video/3gpp" ]
+MEDIA_SUPPORTED_TYPES = ["application/pdf", "audio/ogg", "audio/mp3", "audio/wav", "audio/acc", "audio/acc", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg","video/mov","video/avi","video/x-flv","video/mpg","video/webm", "video/wmv","video/3gpp" ]
 TXT_FILES = ["md", "txt"]
 
 def get_code_media_blobs(folder, include_txt_media):
@@ -47,7 +47,7 @@ def getPartFromBlob(blob, useVertex):
     else:
         return getPart_genai().from_uri(file_uri=getBlobUri(blob), mime_type=getBlobType(blob))
 
-def analizeCode(blobs_to_analyze, human_prompt, model_name, useVertex = False):
+def analizeCode(blobs_to_analyze, human_prompt, model_name, useVertex = True):
     print("METHOD: analizeCode")
     parts = initializeParts(human_prompt, useVertex)
     msg = "\n\n***** Arquivos considerados na análise: *****\n\n"
