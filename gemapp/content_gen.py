@@ -56,9 +56,9 @@ def view_prompts():
 def saveLoadedPrompts(loadedPrompts):
     print("METHOD: saveLoadedPrompts")
     user = get_iap_user()
-    if IS_GAE_ENV_STD:
-        memcache.set(user, json.dumps(loadedPrompts))
-        #memcache.set(user, db.model_to_protobuf(loadedPrompts))
+    #if IS_GAE_ENV_STD:
+    #    memcache.set(user, json.dumps(loadedPrompts))
+    #    #memcache.set(user, db.model_to_protobuf(loadedPrompts))
     global_loaded_prompts[user] = loadedPrompts
 
 def save_prompts_to_file():
