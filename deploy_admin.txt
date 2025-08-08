@@ -22,7 +22,7 @@ export SERVICE_NAME=<nome aplicação>
 export APP_BUCKET_NAME=<nome do bucket>
 
 # definir noe do usuário com permissão de fazer o deploy na aplicação (já tomei a liberdade de colocar o nome do Pedro)
-export DEPLOY_USER=pmodesto@careplus.com.br
+export DEPLOY_USER=user@example.com
 
 # habilitar as APIs do projeto (tomei a liberdade de incluir todas que seriam interessantes) - pode ser necessário pedir para alguém com permissão mais elevada
 gcloud services enable iam.googleapis.com
